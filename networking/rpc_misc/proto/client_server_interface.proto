@@ -1,0 +1,49 @@
+syntax = "proto3";
+import "google/protobuf/struct.proto";
+
+
+service CSInterface
+{
+  rpc GetConfig(Null) returns (Config){}
+  rpc GetServerState(Null) returns (ServerState){}
+  rpc SubmitReturn(Return) returns (Null){}
+  rpc SubmitReturns(ReturnArray) returns (Null){}
+}
+
+message Config
+{
+    google.protobuf.Struct params = 1;
+}
+
+message ServerState
+{
+  repeated float strategy_history = 1;
+  repeated float strategy_frames = 2;
+  repeated float policy_parameters = 3;
+  repeated int32 strategy_history_shape = 4;
+  repeated int32 strategy_frames_shape = 5;
+  int64 epoch = 6;
+  string experiment_id = 7;
+  repeated float obs_stats = 8;
+}
+
+message Return
+{
+  int64 epoch = 1;
+  string encoded_noise = 2;
+  float reward = 3;
+  float novelty = 4;
+  float entropy = 5;
+  int32 timesteps = 6;
+  bool is_eval = 7;
+  repeated float eval_states = 8;
+  repeated int32 eval_states_shape = 9;
+  repeated float obs_stats_update = 10;
+}
+
+message ReturnArray
+{
+  repeated Return rets = 1;
+}
+
+message Null{}

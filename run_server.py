@@ -22,7 +22,7 @@ start_timestamp = datetime.datetime.utcnow().isoformat()
 class ServerRunner(object):
     def __init__(self,
                  opt_fn=DSGD,
-                 env_id="Walker2d-v4",
+                 env_id="LunarLanderContinuous-v2",
                  normalize_obs=True,
                  obs_stats_update_chance=0.01,
                  timestep_limit=50_000_000,
@@ -45,7 +45,7 @@ class ServerRunner(object):
                  omega_steps_to_max=75,
                  log_to_wandb=True,
                  existing_wandb_run=None,
-                 wandb_project="Walker2D-v4",
+                 wandb_project="DFD-LunarLanderContinuous-v2",
                  wandb_group=None,
                  wandb_run_name=f"dev-{start_timestamp}"):
 

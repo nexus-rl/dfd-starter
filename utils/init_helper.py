@@ -19,7 +19,7 @@ def get_init_data(env_id, random_seed):
     else:
         env = gym.make(env_id)
         action_space = env.action_space
-        env.seed(random_seed)
+        env.reset(seed=random_seed)
         action_space.seed(random_seed)
         n_inputs = np.prod(env.observation_space.shape)
         if type(action_space) == gym.spaces.Discrete:

@@ -17,7 +17,7 @@ import wandb
 class SequentialRunner(object):
     def __init__(self,
                  opt_fn=DSGD,
-                 env_id="Walker2d-v2",
+                 env_id="Walker2d-v4",
                  normalize_obs=False,
                  learning_rate=0.01,
                  noise_std=0.02,
@@ -72,7 +72,7 @@ class SequentialRunner(object):
         else:
             self.env = gym.make(env_id)
             action_space = self.env.action_space
-            self.env.seed(random_seed)
+            self.env.reset(seed=random_seed)
             action_space.seed(random_seed)
             n_inputs = np.prod(self.env.observation_space.shape)
 
@@ -199,15 +199,15 @@ class SequentialRunner(object):
     def _sample_initial_buffers(self, buffer_size):
         self.vbn_buffer = []
         self.zeta = []
-        obs = self.env.reset()
+        obs, _ = self.env.reset()
         for i in range(max(buffer_size, self.zeta_size)):
             if i < self.zeta_size:
                 self.zeta.append(obs)
             if buffer_size > 0 and i < buffer_size:
                 self.vbn_buffer.append(obs)
-            obs, rew, done, _ = self.env.step(self.env.action_space.sample())
-            if done:
-                obs = self.env.reset()
+            obs, rew, terminated, truncated, _ = self.env.step(self.env.action_space.sample())
+            if terminated or truncated:
+                obs, _ = self.env.reset()
 
         self.vbn_buffer = np.asarray(self.vbn_buffer)
         self.zeta = np.asarray(self.zeta)

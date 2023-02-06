@@ -25,13 +25,14 @@ def run_test():
 
     handler = StrategyHandler(policy)
 
-    zeta = [env.reset()]
+    obs, _ = env.reset()
+    zeta = [obs]
     done = False
     for i in range(200-1):
         action = policy.get_action(zeta[-1])
-        obs, rew, done, _ = env.step(action)
-        if done:
-            obs = env.reset()
+        obs, rew, terminated, truncated, _ = env.step(action)
+        if terminated or truncated:
+            obs, _ = env.reset()
         zeta.append(obs)
     zeta = np.asarray(zeta)
 

@@ -16,7 +16,7 @@ torch.set_num_threads(1)
 
 
 class ClientRunner(object):
-    def __init__(self):
+    def __init__(self, eval_only=False, render=False):
         self.policy_reward = 0
         self.policy_entropy = 0
         self.policy_novelty = 0
@@ -25,6 +25,8 @@ class ClientRunner(object):
         self.policy = None
         self.env = None
         self.rng = None
+        self.eval_only = eval_only
+        self.render = render
 
         self.client = RPCClient()
 
@@ -118,7 +120,7 @@ class ClientRunner(object):
         random.seed(random_seed)
         np.random.seed(random_seed)
 
-        self.env, self.policy, strategy_distance_fn = init_helper.get_init_data(env_id, random_seed)
+        self.env, self.policy, strategy_distance_fn = init_helper.get_init_data(env_id, random_seed, render_mode="human" if self.render else None)
 
         noise_source = RNGNoiseSource(self.policy.num_params, random_seed=random_seed)
 
@@ -128,9 +130,21 @@ class ClientRunner(object):
         self.worker = Worker(self.policy, Agent(self.policy, self.env, random_seed, normalize_obs=normalize_obs,
                                                 obs_stats_update_chance=obs_stats_update_chance),
                              noise_source, self.strategy_handler, sigma=noise_std, random_seed=random_seed,
-                             eval_prob=eval_prob)
+                             eval_prob=eval_prob, eval_only=self.eval_only)
 
 
 if __name__ == "__main__":
-    runner = ClientRunner()
+    import argparse
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--eval_only", action="store_true")
+    parser.add_argument("--render", action="store_true")
+    args = parser.parse_args()
+    eval_only = args.eval_only
+    render = args.render
+    if eval_only:
+        print("Running in eval only mode")
+    if render:
+        print("Rendering enabled")
+
+    runner = ClientRunner(eval_only=eval_only, render=render)
     runner.run()

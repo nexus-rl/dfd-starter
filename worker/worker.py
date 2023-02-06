@@ -5,7 +5,7 @@ from utils.math_helpers import WelfordRunningStat
 
 
 class Worker(object):
-    def __init__(self, policy, agent, noise_source, strategy_handler, sigma=0.02, eval_prob=0.1, random_seed=123):
+    def __init__(self, policy, agent, noise_source, strategy_handler, sigma=0.02, eval_prob=0.1, random_seed=123, eval_only=False):
         self.policy = policy
         self.agent = agent
         self.noise_source = noise_source
@@ -15,12 +15,13 @@ class Worker(object):
         self.rng = np.random.RandomState(random_seed)
         self.eval_prob = eval_prob
         self.fixed_obs_stats = WelfordRunningStat(policy.input_shape)
+        self.eval_only = eval_only
 
     @torch.no_grad()
     def collect_returns(self, n=1):
         returns = []
         for i in range(n):
-            is_eval = self.rng.uniform(0, 1) < self.eval_prob
+            is_eval = self.eval_only or self.rng.uniform(0, 1) < self.eval_prob
 
             if not is_eval:
                 flat = self.policy.get_trainable_flat()

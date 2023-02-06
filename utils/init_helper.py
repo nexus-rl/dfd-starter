@@ -5,7 +5,7 @@ import gym
 import numpy as np
 
 
-def get_init_data(env_id, random_seed):
+def get_init_data(env_id, random_seed, render_mode=None):
     if "procgen" in env_id:
         env = ImpalaEnvWrapper(gym.make(env_id, distribution_mode="easy", num_levels=500))
         policy = ImpalaPolicy(env.observation_space.shape, env.action_space.n, seed=random_seed)
@@ -17,7 +17,7 @@ def get_init_data(env_id, random_seed):
         policy = AtariPolicy(env.observation_space.shape, env.action_space.n, seed=random_seed)
         strategy_distance_fn = math_helpers.categorical_tvd
     else:
-        env = gym.make(env_id)
+        env = gym.make(env_id, render_mode=render_mode)
         action_space = env.action_space
         env.reset(seed=random_seed)
         action_space.seed(random_seed)

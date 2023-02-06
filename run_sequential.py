@@ -207,7 +207,7 @@ class SequentialRunner(object):
                 self.vbn_buffer.append(obs)
             obs, rew, terminated, truncated, _ = self.env.step(self.env.action_space.sample())
             if terminated or truncated:
-                obs_ = self.env.reset()
+                obs, _ = self.env.reset()
 
         self.vbn_buffer = np.asarray(self.vbn_buffer)
         self.zeta = np.asarray(self.zeta)

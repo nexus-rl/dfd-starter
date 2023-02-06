@@ -9,7 +9,7 @@ if __name__ == "__main__":
     cfg = {
         "seed": 124,
         "grad_opt": DSGD,
-        "env_id": "Walker2d-v2",
+        "env_id": "Walker2d-v4",
         "wandb": {"log": True,
                   "run_name": "rng_test"},
 
@@ -35,7 +35,7 @@ if __name__ == "__main__":
 
     runner = SequentialRunner(log_to_wandb=True,
                               opt_fn=DSGD,
-                              env_id="Walker2d-v2",
+                              env_id="Walker2d-v4",
                               wandb_run_name="rng_test",
                               normalize_obs=True,
                               learning_rate=0.01,

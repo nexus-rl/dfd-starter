@@ -14,12 +14,15 @@ import random
 import wandb
 import time
 import uuid
+import datetime
+
+start_timestamp = datetime.datetime.utcnow().isoformat()
 
 
 class ServerRunner(object):
     def __init__(self,
                  opt_fn=DSGD,
-                 env_id="Walker2d-v2",
+                 env_id="Walker2d-v4",
                  normalize_obs=True,
                  obs_stats_update_chance=0.01,
                  timestep_limit=50_000_000,
@@ -40,11 +43,11 @@ class ServerRunner(object):
                  omega_max_value=1,
                  omega_steps_to_min=25,
                  omega_steps_to_max=75,
-                 log_to_wandb=False,
+                 log_to_wandb=True,
                  existing_wandb_run=None,
-                 wandb_project="fd-starter",
+                 wandb_project="Walker2D-v4",
                  wandb_group=None,
-                 wandb_run_name="dfd_exp_buffer_pert_dist"):
+                 wandb_run_name=f"dev-{start_timestamp}"):
 
         self.wandb_run = None
 
@@ -218,7 +221,7 @@ class ServerRunner(object):
     def _sample_initial_buffers(self, vbn_buffer_size):
         self.vbn_buffer = []
         self.zeta = []
-        obs = self.env.reset()
+        obs, _ = self.env.reset()
         for i in range(max(vbn_buffer_size, self.zeta_size)):
             if self.normalize_obs:
                 self.global_obs_stats.increment(obs, 1)
@@ -228,10 +231,9 @@ class ServerRunner(object):
 
             if vbn_buffer_size > 0 and i < vbn_buffer_size:
                 self.vbn_buffer.append(obs)
-
-            obs, rew, done, _ = self.env.step(self.env.action_space.sample())
-            if done:
-                obs = self.env.reset()
+            obs, rew, terminated, truncated, _ = self.env.step(self.env.action_space.sample())
+            if terminated or truncated:
+                obs, _ = self.env.reset()
 
         self.vbn_buffer = np.asarray(self.vbn_buffer)
         self.zeta = np.asarray(self.zeta)

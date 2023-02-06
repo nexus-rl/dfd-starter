@@ -13,11 +13,11 @@ class ImpalaEnvWrapper(gym.Env):
         self.obs_shape = [1, 1, self._env.observation_space.shape[-1]] + [arg for arg in self._env.observation_space.shape[:-1]]
 
     def step(self, action):
-        obs, rew, done, etc = self._env.step(action)
-        return self._format_obs(obs, rew, done), rew, done, etc
+        obs, rew, terminated, truncated, etc = self._env.step(action)
+        return self._format_obs(obs, rew, (terminated or truncated)), rew, terminated, truncated, etc
 
-    def reset(self, *, seed=None, return_info=False, options=None):
-        return self._format_obs(self._env.reset(), 0, False)
+    def reset(self, *, seed=None, options=None):
+        return self._format_obs(self._env.reset(seed=seed), 0, False), {}
 
     def render(self, mode="human"):
         return self._env.render(mode)

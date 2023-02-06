@@ -45,16 +45,20 @@ class Environment(gym.Env):
         self.current_step += 1
         self.action_record.append(action)
 
-        return self.form_obs(), reward, done, {}
+        return self.form_obs(), reward, done, False, {}
 
-    def reset(self):
+    def reset(self, seed=None, options=None):
         if self.opt_id is not None and len(self.action_record) > 0:
             self.save(self.opt_id)
+        
+        if seed is not None:
+            self.rng = np.random.RandomState(seed)
+
         self.current_node = self.map.get_node(self.map.width*self.map.node_radius//2, self.map.height*self.map.node_radius//2)
         self.current_step = 0
         self.action_record = []
 
-        return self.form_obs()
+        return self.form_obs(), {}
 
     def form_obs(self):
         obs = [self.current_node.x/self.MAX_X, self.current_node.y/self.MAX_Y]
@@ -79,6 +83,3 @@ class Environment(gym.Env):
 
     def render(self, mode='human'):
         pass
-
-    def seed(self, seed):
-        self.rng = np.random.RandomState(seed)

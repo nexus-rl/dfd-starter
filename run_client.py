@@ -107,7 +107,7 @@ class ClientRunner(object):
         self.configure(cfg["env_id"], cfg["normalize_obs"], cfg["obs_stats_update_chance"], cfg["noise_std"],
                        cfg["random_seed"], cfg["eval_prob"], cfg["max_strategy_history_size"])
 
-    def configure(self, env_id="Walker2d-v2", normalize_obs=True, obs_stats_update_chance=0.01,
+    def configure(self, env_id="Walker2d-v4", normalize_obs=True, obs_stats_update_chance=0.01,
                   noise_std=0.02, random_seed=124, eval_prob=0.05, max_strategy_history_size=200):
 
         print("Env: {}\nSeed: {}\nNoise std: {}\nNormalize obs: {}".format(env_id, random_seed, noise_std, normalize_obs))

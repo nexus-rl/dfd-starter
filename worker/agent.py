@@ -7,7 +7,7 @@ class Agent(object):
         self.policy = policy
         self.env = env
         self.rng = np.random.RandomState(random_seed)
-        self.last_obs = env.reset()
+        self.last_obs, _ = env.reset()
         self.cumulative_timesteps = 0
         self.ts_limit = 10000
 
@@ -41,14 +41,14 @@ class Agent(object):
                 obs = np.clip(obs, -10, 10)
 
             action = policy.get_action(obs, deterministic=eval_run)
-            new_obs, rew, done, _ = env.step(action)
+            new_obs, rew, terminated, truncated, _ = env.step(action)
 
             reward += rew
             steps += 1
             obs = new_obs
 
-            if done:
-                obs = env.reset()
+            if terminated or truncated:
+                obs, _ = env.reset()
                 break
 
         self.last_obs = obs

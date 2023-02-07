@@ -62,7 +62,7 @@ class Policy(nn.Module):
 
     def set_grad_from_flat(self, gradient):
         idx = 0
-        for p in self.model.parameters():
+        for p in self.parameters():
             step = np.prod(p.shape)
             grad = gradient[idx:idx + step]
             grad = torch.as_tensor(grad, dtype=torch.float32).view_as(p)
@@ -80,6 +80,7 @@ class Policy(nn.Module):
                 grad[idx:idx + step] = np.zeros(step)
             idx += step
         return grad
+
 
     def _init_params(self):
         self._normc_init()

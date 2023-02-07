@@ -39,7 +39,6 @@ class DSGD(Optimizer):
         self.steps += 1
 
     def adjust_lr(self, omega):
-        # pass
         self.lr_scale = math_helpers.affine_transform(omega.omega, omega.min_omega,
                                                       omega.max_omega, self.min_scale,
                                                       self.max_scale)

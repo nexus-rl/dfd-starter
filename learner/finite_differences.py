@@ -4,9 +4,10 @@ import numpy as np
 
 
 class FiniteDifferences(object):
-    def __init__(self, policy, gradient_optimizer, omega, noise_source, ent_coef=0.0, max_delayed_return=10):
+    def __init__(self, policy, gradient_optimizer, omega, noise_source, noise_std=0.1, batch_size=100, ent_coef=0.0, max_delayed_return=10):
         self.max_delayed_return = max_delayed_return
         self.ent_coef = ent_coef
+        self.noise_std = noise_std
         self.policy = policy
         self.gradient_optimizer = gradient_optimizer
         self.noise_source = noise_source
@@ -32,15 +33,15 @@ class FiniteDifferences(object):
         # print("{:7.4f} | {:7.4f} | {:7.4f} | {:7.4f}".format(
         #     np.mean(entropies), np.std(entropies), np.min(entropies), np.max(entropies)))
 
-        # rewards = np.subtract(rewards, policy_reward) / (np.std(rewards) + 1e-12)
-        # novelties = np.subtract(novelties, policy_novelty) / (np.std(novelties) + 1e-12)
-        # entropies = np.subtract(entropies, policy_entropy) / (np.std(entropies) + 1e-12)
+        rewards = np.subtract(rewards, policy_reward)
+        # novelties = np.subtract(novelties, policy_novelty)
+        # entropies = np.subtract(entropies, policy_entropy)
         rewards = math_helpers.standardize_arr(rewards)
-        novelties = math_helpers.standardize_arr(novelties)
-        entropies = math_helpers.standardize_arr(entropies)
+        # novelties = math_helpers.standardize_arr(novelties)
+        # entropies = math_helpers.standardize_arr(entropies)
         w = self.omega.omega
 
-        objective_function = rewards + entropies*self.ent_coef  # *(1-w) + novelties*w + entropies * self.ent_coef
+        objective_function = rewards #+ entropies*self.ent_coef  # *(1-w) + novelties*w + entropies * self.ent_coef
         np.dot(objective_function, perturbations, out=self.gradient_memory) / len(batch)
 
         if self.using_dsgd:
@@ -81,7 +82,7 @@ class FiniteDifferences(object):
 
         decoded_noise = self.noise_source.decode(ret.encoded_noise)
         policy_dist = self.dist_map[epoch]
-        lmbda = decoded_noise + policy_dist
+        lmbda = decoded_noise*self.noise_std + policy_dist
         ret.perturbation = lmbda
 
         return True

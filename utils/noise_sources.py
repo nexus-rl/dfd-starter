@@ -8,12 +8,14 @@ class RNGNoiseSource(object):
         self.n_params = n_params
 
     def sample(self):
-        state = "{}".format(self.rng.__getstate__()['state']['state'])
+        state = "{},{}".format(self.rng.__getstate__()['state']['state'], self.rng.__getstate__()['state']['inc'])
         noise = self.rng.standard_normal(size=self.n_params)
         return state, noise
 
     def decode(self, state):
-        self.base_state['state']['state'] = int(state)
+        state_data = state.split(",")
+        self.base_state['state']['state'] = int(state_data[0])
+        self.base_state['state']['inc'] = int(state_data[1])
         self.rng.__setstate__(self.base_state)
         return self.rng.standard_normal(size=self.n_params)
 

@@ -16,7 +16,7 @@ class RPCServer(object):
     def update(self, server_state):
         self.server_interface.update(server_state)
 
-    def get_returns_batch(self, batch_size=1, current_epoch=None, max_delayed_return=None):
+    def get_returns_batch(self, batch_size=None, current_epoch=None, max_delayed_return=None):
         return self.server_interface.get_returns_batch(batch_size=batch_size, current_epoch=current_epoch,
                                                        max_delayed_return=max_delayed_return)
 
@@ -61,11 +61,15 @@ class ServerInterface(object):
         # print(np.shape(ret.eval_states))
         self.waiting_returns.append(ret)
 
-    def get_returns_batch(self, batch_size=1, current_epoch=None, max_delayed_return=None):
+    def get_returns_batch(self, batch_size=None, current_epoch=None, max_delayed_return=None):
         timesteps = 0
         n_delayed = 0
         n_discarded = 0
         rets = []
+
+        # passing bs=None will pull out every waiting return instead of a specific number
+        if batch_size is None:
+            batch_size = max(len(self.waiting_returns), 1)
 
         while len(rets) < batch_size:
             if len(self.waiting_returns) == 0:
@@ -135,6 +139,10 @@ class ServerServicer(client_server_interface_pb2_grpc.CSInterfaceServicer):
         return response
 
     def GetConfig(self, request, context):
+        self.server_interface.grpc_cfg.params["random_seed"] += 1
+        print("transmitting config",self.server_interface.grpc_cfg.params["random_seed"])
+
+        # self.server_interface.grpc_cfg["seed"] += 1
         return self.server_interface.grpc_cfg
 
     def SubmitReturn(self, request, context):

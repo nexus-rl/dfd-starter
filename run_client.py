@@ -84,6 +84,13 @@ class ClientRunner(object):
                 cfg = client.current_state.cfg
                 self.configure(cfg["env_id"], cfg["normalize_obs"], cfg["obs_stats_update_chance"], cfg["noise_std"],
                                cfg["random_seed"], cfg["eval_prob"], cfg["max_strategy_history_size"])
+
+                strategy_handler = self.strategy_handler
+                policy = self.policy
+                worker = self.worker
+
+                policy.deserialize(client.current_state.policy_params)
+                strategy_handler.add_policy(policy)
                 worker.update(client.current_state)
 
         client.disconnect()
@@ -103,6 +110,7 @@ class ClientRunner(object):
     def configure(self, env_id="Walker2d-v2", normalize_obs=True, obs_stats_update_chance=0.01,
                   noise_std=0.02, random_seed=124, eval_prob=0.05, max_strategy_history_size=200):
 
+        print("Env: {}\nSeed: {}\nNoise std: {}\nNormalize obs: {}".format(env_id, random_seed, noise_std, normalize_obs))
         random_seed = int(random_seed)
         self.rng = np.random.RandomState(random_seed)
 

@@ -1,4 +1,6 @@
 import numpy as np
+import torch
+import functools
 import os
 
 
@@ -197,7 +199,7 @@ def categorical_bhattacharrya_dist(p, q):
     return bhattacharrya_distances.mean(axis=-1)
 
 
-def gaussian_wasserstein_dist(strategy_a, strategy_b):
+def gaussian_wasserstein_dist_from_strategies(strategy_a, strategy_b):
     n1 = strategy_a.shape[-1] // 2
     n2 = strategy_b.shape[-1] // 2
 
@@ -205,9 +207,13 @@ def gaussian_wasserstein_dist(strategy_a, strategy_b):
     s1 = strategy_a[..., n1:]
     m2 = strategy_b[..., :n2]
     s2 = strategy_b[..., n2:]
-    inside_trace = s1 + s2 - 2 * np.sqrt(s1 * s2)
-    dists = np.square(np.linalg.norm(m1 - m2, axis=-1)) + inside_trace.sum(axis=-1)
+    dists = gaussian_wasserstein_dist(m1=m1, s1=s1, m2=m2, s2=s2)
     return dists.mean(axis=-1)
+
+def gaussian_wasserstein_dist(m1, s1, m2, s2):
+    inside_trace = s1 + s2 - 2 * np.sqrt(s1 * s2)
+    dist = np.square(np.linalg.norm(m1 - m2, axis=-1)) + inside_trace.sum(axis=-1)
+    return dist
 
 
 def categorical_tvd(p1, p2):
@@ -215,3 +221,15 @@ def categorical_tvd(p1, p2):
     tvd = diff.sum(axis=-1)
     return tvd.mean(axis=-1)
 
+@functools.lru_cache()
+def gaussian_logpdf(x, mean, std):
+    msq = mean * mean
+    ssq = std * std
+    xsq = x * x
+
+    term1 = -torch.divide(msq, (2 * ssq))
+    term2 = torch.divide(mean * x, ssq)
+    term3 = -torch.divide(xsq, (2 * ssq))
+    term4 = torch.log(1 / torch.sqrt(2 * np.pi * ssq))
+
+    return term1 + term2 + term3 + term4

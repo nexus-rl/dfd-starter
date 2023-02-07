@@ -22,12 +22,13 @@ class ServerRunner(object):
                  env_id="Walker2d-v2",
                  normalize_obs=True,
                  obs_stats_update_chance=0.01,
-                 learning_rate=0.025,
-                 noise_std=0.1,
-                 batch_size=100,
-                 ent_coef=0,
-                 random_seed=124,
-                 max_delayed_return=10,
+                 timestep_limit=50_000_000,
+                 learning_rate=0.01,
+                 noise_std=0.02,
+                 batch_size=40,
+                 ent_coef=0.0,
+                 random_seed=123,
+                 max_delayed_return=100,
                  vbn_buffer_size=0,
                  zeta_size=2,
                  max_strategy_history_size=2,
@@ -43,7 +44,7 @@ class ServerRunner(object):
                  existing_wandb_run=None,
                  wandb_project="fd-starter",
                  wandb_group=None,
-                 wandb_run_name="dev"):
+                 wandb_run_name="dfd_exp_buffer_pert_dist"):
 
         self.wandb_run = None
 
@@ -70,6 +71,7 @@ class ServerRunner(object):
         random.seed(random_seed)
         np.random.seed(random_seed)
 
+        self.timestep_limit = timestep_limit
         self.env, self.policy, strategy_distance_fn = init_helper.get_init_data(env_id, random_seed)
 
         opt = opt_fn(self.policy.parameters(), lr=learning_rate)
@@ -77,7 +79,12 @@ class ServerRunner(object):
 
         self.strategy_handler = StrategyHandler(self.policy, strategy_distance_fn, max_history_size=max_strategy_history_size)
 
-        self.learner = FiniteDifferences(self.policy, opt, self.omega, noise_source, ent_coef, max_delayed_return)
+        self.learner = FiniteDifferences(self.policy, opt, self.omega, noise_source,
+                                         noise_std=noise_std,
+                                         batch_size=batch_size,
+                                         ent_coef=ent_coef,
+                                         max_delayed_return=max_delayed_return)
+
         self.normalize_obs = normalize_obs
         self.policy_reward = 0
         self.policy_entropy = 0
@@ -111,6 +118,7 @@ class ServerRunner(object):
         strategy_handler = self.strategy_handler
         global_obs_stats = self.global_obs_stats
         zeta = self.zeta
+        ts_limit = self.timestep_limit
         idxs = [i for i in range(len(zeta))]
         max_delayed_return = self.learner.max_delayed_return
         strategy_handler.add_policy(policy)
@@ -118,16 +126,18 @@ class ServerRunner(object):
 
         worker.start(address="localhost", port=1025)
 
-        while cumulative_timesteps < 5000000:
+        while cumulative_timesteps < ts_limit:
             t1 = time.perf_counter()
             ret_rewards = []
             ret_novelties = []
+            non_eval_returns = []
             any_eval = False
 
             returns, timesteps, n_delayed, n_discarded = worker.collect_returns(batch_size=batch_size,
                                                                                 current_epoch=learner.epoch,
                                                                                 max_delayed_return=max_delayed_return)
-
+            print("received",len(returns))
+            self.learner.discarded_returns += n_discarded
             cumulative_timesteps += timesteps
 
             for ret in returns:
@@ -140,22 +150,24 @@ class ServerRunner(object):
                     self.rng.shuffle(idxs)
                     zeta[idxs[:len(ret.eval_states)]] = ret.eval_states[:self.zeta_size]
                 else:
+                    non_eval_returns.append(ret)
                     ret_rewards.append(ret.reward)
                     ret_novelties.append(ret.novelty)
 
             # print("collected {} returns of which {} are delayed.".format(len(returns), n_delayed))
             if any_eval:
                 strategy_handler.set_zeta(zeta)
-                self.omega.step(np.mean(ret_rewards))
+                if len(ret_rewards) != 0:
+                    self.omega.step(np.mean(ret_rewards))
 
-            update_magnitude = learner.step(returns, self.policy_reward, self.policy_novelty, self.policy_entropy)
+            update_magnitude = learner.step(non_eval_returns, self.policy_reward, self.policy_novelty, self.policy_entropy)
 
             if self.vbn_buffer is not None:
                 self.policy.compute_vbn(self.vbn_buffer)
 
-            if update_magnitude > 0:
+            if update_magnitude > 0 and len(ret_rewards) != 0:
                 strategy_handler.add_policy(policy)
-                delayed_ratio = n_delayed / len(returns)
+                delayed_ratio = n_delayed / len(non_eval_returns)
 
                 epoch_time = time.perf_counter() - t1
                 epoch_report = {"Epoch":                learner.epoch,
@@ -168,7 +180,8 @@ class ServerRunner(object):
                                 "Noisy Novelty":        np.mean(ret_novelties),
                                 "\nDelayed Ratio":      delayed_ratio,
                                 "Update Magnitude":     update_magnitude,
-                                "Omega":                self.omega.omega}
+                                "Omega":                self.omega.omega,
+                                "Discarded Returns":    learner.discarded_returns}
                 self._report_epoch(epoch_report)
 
             current_state.strategy_frames = zeta
@@ -197,18 +210,20 @@ class ServerRunner(object):
         print("***********End Epoch Report***********")
 
     @torch.no_grad()
-    def _sample_initial_buffers(self, buffer_size):
+    def _sample_initial_buffers(self, vbn_buffer_size):
         self.vbn_buffer = []
         self.zeta = []
         obs = self.env.reset()
-        for i in range(max(buffer_size, self.zeta_size)):
+        for i in range(max(vbn_buffer_size, self.zeta_size)):
             if self.normalize_obs:
                 self.global_obs_stats.increment(obs, 1)
 
             if i < self.zeta_size:
                 self.zeta.append(obs)
-            if buffer_size > 0 and i < buffer_size:
+
+            if vbn_buffer_size > 0 and i < vbn_buffer_size:
                 self.vbn_buffer.append(obs)
+
             obs, rew, done, _ = self.env.step(self.env.action_space.sample())
             if done:
                 obs = self.env.reset()

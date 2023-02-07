@@ -7,7 +7,7 @@ class GRPCWorker(object):
     def __init__(self, state):
         self.grpc_server = RPCServer(state)
 
-    def collect_returns(self, batch_size=1, current_epoch=None, max_delayed_return=None):
+    def collect_returns(self, batch_size=None, current_epoch=None, max_delayed_return=None):
         return self.grpc_server.get_returns_batch(batch_size=batch_size, current_epoch=current_epoch,
                                                   max_delayed_return=max_delayed_return)
 

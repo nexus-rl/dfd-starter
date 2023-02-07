@@ -27,6 +27,6 @@ def get_init_data(env_id, random_seed):
             strategy_distance_fn = math_helpers.categorical_tvd
         else:
             policy = MujocoPolicy(n_inputs, np.prod(env.action_space.shape), seed=random_seed)
-            strategy_distance_fn = math_helpers.gaussian_wasserstein_dist
+            strategy_distance_fn = math_helpers.gaussian_wasserstein_dist_from_strategies
 
     return env, policy, strategy_distance_fn

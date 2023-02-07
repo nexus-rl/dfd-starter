@@ -238,12 +238,6 @@ class ServerRunner(object):
         self.vbn_buffer = np.asarray(self.vbn_buffer)
         self.zeta = np.asarray(self.zeta)
 
-
-def main():
-    runner = ServerRunner()
-    runner.train()
-
-
 def sweep():
     def sweep_fn():
         run = wandb.init(project="unnamed-sweep")
@@ -283,6 +277,135 @@ def sweep():
     wandb.agent(sweep_id, function=sweep_fn, count=180, project="mujoco-sweep-longer")
 
 
+def train(optimizer, env_id=None, normalize_obs=True, obs_stats_update_chance=0.01, learning_rate=0.01,
+          noise_std=0.02, batch_size=20, ent_coef=0, random_seed=124, max_delayed_return=10,
+          vbn_buffer_size=0, zeta_size=2, max_strategy_history_size=2, eval_prob=0.05,
+          omega_default_value=1, omega_improvement_threshold=1.035, omega_reward_history_size=20,
+          omega_min_value=0, omega_max_value=1, omega_steps_to_min=25, omega_steps_to_max=75,
+          log_to_wandb=True, existing_wandb_run=None, wandb_project=None, wandb_group=None,
+          wandb_run_name=None):
+
+    KNOWN_OPTIMIZERS = {
+        "DSGD": lambda: DSGD,
+        "Adam": lambda: torch.optim.Adam,
+        "SGD": lambda: torch.optim.SGD,
+    }
+
+    if optimizer not in KNOWN_OPTIMIZERS:
+        raise ValueError(f"Unknown optimizer {optimizer}, must be one of {KNOWN_OPTIMIZERS.keys()}")
+    opt_fn = KNOWN_OPTIMIZERS[optimizer]()
+
+    if env_id is None:
+        env_id = "LunarLanderContinuous-v2"
+
+    if env_id not in gym.envs.registry:
+        raise ValueError("Unknown env: {}, make sure it is registered to Gym.".format(env_id))
+
+    if log_to_wandb and existing_wandb_run is None:
+        # Expect a project name to be passed in
+        if wandb_project is None:
+            raise ValueError("Must pass in a wandb project name (--wandb_project) if not resuming a run")
+        # Defaults for group and run name if not passed in
+        if wandb_group is None:
+            wandb_group = env_id
+        if wandb_run_name is None:
+            wandb_run_name = f"seed-{random_seed}-start-{start_timestamp}"
+
+    if not log_to_wandb:
+        print("INFO: Not logging to wandb.")
+
+    if vbn_buffer_size == 0 or normalize_obs:
+        # TODO: Consider actually checking the environment's action space.
+        # I didn't do that because I was concerned that some environments might need particular instantiation and didn't want to do that here.
+        print("INFO: If you're using a discrete action space, you should set vbn_buffer_size > 0 and normalize_obs=False. Consider vbn=1000.")
+        # TODO: Move to get_init_data
+
+    runner = ServerRunner(opt_fn=opt_fn,
+                          env_id=env_id,
+                          normalize_obs=normalize_obs,
+                          obs_stats_update_chance=obs_stats_update_chance,
+                          learning_rate=learning_rate,
+                          noise_std=noise_std,
+                          batch_size=batch_size,
+                          ent_coef=ent_coef,
+                          random_seed=random_seed,
+                          max_delayed_return=max_delayed_return,
+                          vbn_buffer_size=vbn_buffer_size,
+                          zeta_size=zeta_size,
+                          max_strategy_history_size=max_strategy_history_size,
+                          eval_prob=eval_prob,
+                          omega_default_value=omega_default_value,
+                          omega_improvement_threshold=omega_improvement_threshold,
+                          omega_reward_history_size=omega_reward_history_size,
+                          omega_min_value=omega_min_value,
+                          omega_max_value=omega_max_value,
+                          omega_steps_to_min=omega_steps_to_min,
+                          omega_steps_to_max=omega_steps_to_max,
+                          log_to_wandb=log_to_wandb,
+                          existing_wandb_run=existing_wandb_run,
+                          wandb_project=wandb_project,
+                          wandb_group=wandb_group,
+                          wandb_run_name=wandb_run_name
+                          )
+    runner.train()
+
 if __name__ == "__main__":
-    main()
-    # sweep()
+    import argparse
+    parser = argparse.ArgumentParser()
+    parser.add_argument("operation", type=str, choices=["train", "sweep"])
+    parser.add_argument("--env", type=str)
+    parser.add_argument("--log_to_wandb", action="store_true")
+    parser.add_argument("--learning_rate", type=float, default=0.01)
+    parser.add_argument("--noise_std", type=float, default=0.1)
+    parser.add_argument("--batch_size", type=int, default=32)
+    parser.add_argument("--optimizer", type=str, default="DSGD")
+    parser.add_argument("--normalize_obs", type=bool, default=True)
+    parser.add_argument("--obs_stats_update_chance", type=float, default=0.01)
+    parser.add_argument("--ent_coef", type=float, default=0)
+    parser.add_argument("--seed", type=int, default=124, dest="random_seed")
+    parser.add_argument("--max_delayed_return", type=int, default=10)
+    parser.add_argument("--vbn_buffer_size", type=int, default=0)
+    parser.add_argument("--zeta_size", type=int, default=2)
+    parser.add_argument("--max_strategy_history_size", type=int, default=2)
+    parser.add_argument("--eval_prob", type=float, default=0.05)
+    parser.add_argument("--omega_default_value", type=float, default=1)
+    parser.add_argument("--omega_improvement_threshold", type=float, default=1.035)
+    parser.add_argument("--omega_reward_history_size", type=int, default=20)
+    parser.add_argument("--omega_min_value", type=float, default=0)
+    parser.add_argument("--omega_max_value", type=float, default=1)
+    parser.add_argument("--omega_steps_to_min", type=int, default=25)
+    parser.add_argument("--omega_steps_to_max", type=int, default=75)
+    parser.add_argument("--wandb_project", type=str, default=None)
+    parser.add_argument("--wandb_group", type=str, default=None)
+    parser.add_argument("--wandb_run_name", type=str, default=None)
+    args = parser.parse_args()
+    if args.operation == "train":
+        train(
+            optimizer=args.optimizer,
+            env_id=args.env,
+            normalize_obs=args.normalize_obs,
+            obs_stats_update_chance=args.obs_stats_update_chance,
+            learning_rate=args.learning_rate,
+            noise_std=args.noise_std,
+            batch_size=args.batch_size,
+            ent_coef=args.ent_coef,
+            random_seed=args.random_seed,
+            max_delayed_return=args.max_delayed_return,
+            vbn_buffer_size=args.vbn_buffer_size,
+            zeta_size=args.zeta_size,
+            max_strategy_history_size=args.max_strategy_history_size,
+            eval_prob=args.eval_prob,
+            omega_default_value=args.omega_default_value,
+            omega_improvement_threshold=args.omega_improvement_threshold,
+            omega_reward_history_size=args.omega_reward_history_size,
+            omega_min_value=args.omega_min_value,
+            omega_max_value=args.omega_max_value,
+            omega_steps_to_min=args.omega_steps_to_min,
+            omega_steps_to_max=args.omega_steps_to_max,
+            log_to_wandb=args.log_to_wandb,
+            wandb_project=args.wandb_project,
+            wandb_group=args.wandb_group,
+            wandb_run_name=args.wandb_run_name
+        )
+    elif args.operation == "sweep":
+        raise NotImplementedError("Sweep not implemented yet, someone should do that.")

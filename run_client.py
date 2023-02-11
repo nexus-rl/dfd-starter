@@ -1,5 +1,5 @@
 import time
-from custom_envs import simple_trap_env
+from custom_envs import simple_trap_env, rocketsim
 from networking.client import RPCClient
 from learner import FDState
 from worker import Agent, Worker

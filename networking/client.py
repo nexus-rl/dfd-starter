@@ -1,4 +1,5 @@
 import grpc
+from networking.port_resolver import resolve_port
 from networking.rpc_misc import client_server_interface_pb2, client_server_interface_pb2_grpc
 from google.protobuf import json_format
 import numpy as np
@@ -20,8 +21,8 @@ class RPCClient(object):
         self.null = client_server_interface_pb2.Null()
         self.current_state = FDState()
 
-    def connect(self, address="localhost", port=50051):
-        self.channel = grpc.insecure_channel('{}:{}'.format(address, port),
+    def connect(self, address="localhost", port=None):
+        self.channel = grpc.insecure_channel(resolve_port(address, port),
                                              options=[('grpc.max_send_message_length', RPCServer.MAX_MESSAGE_LENGTH),
                                                       ('grpc.max_receive_message_length', RPCServer.MAX_MESSAGE_LENGTH)],
                                              compression=grpc.Compression.Gzip)

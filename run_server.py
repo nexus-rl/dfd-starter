@@ -86,9 +86,9 @@ class ServerRunner(object):
                                          max_delayed_return=max_delayed_return)
 
         self.normalize_obs = normalize_obs
-        self.policy_reward = 0
-        self.policy_entropy = 0
-        self.policy_novelty = 0
+        self.policy_reward = None
+        self.policy_entropy = None
+        self.policy_novelty = None
         self.zeta = []
         self.vbn_buffer = None
         self.global_obs_stats = math_helpers.WelfordRunningStat(self.policy.input_shape)
@@ -144,9 +144,14 @@ class ServerRunner(object):
                 global_obs_stats.increment_from_obs_stats_update(ret.obs_stats_update)
                 if ret.is_eval:
                     any_eval = True
-                    self.policy_reward = self.policy_reward * 0.9 + ret.reward * 0.1
-                    self.policy_entropy = self.policy_entropy * 0.9 + ret.entropy * 0.1
-                    self.policy_novelty = self.policy_novelty * 0.9 + ret.novelty * 0.1
+                    if self.policy_reward is None:
+                        self.policy_reward = ret.reward
+                        self.policy_entropy = ret.entropy
+                        self.policy_novelty = ret.novelty
+                    else:
+                        self.policy_reward = self.policy_reward * 0.9 + ret.reward * 0.1
+                        self.policy_entropy = self.policy_entropy * 0.9 + ret.entropy * 0.1
+                        self.policy_novelty = self.policy_novelty * 0.9 + ret.novelty * 0.1
                     self.rng.shuffle(idxs)
                     zeta[idxs[:len(ret.eval_states)]] = ret.eval_states[:self.zeta_size]
                 else:

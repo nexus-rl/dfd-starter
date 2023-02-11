@@ -1,3 +1,4 @@
+from networking.port_resolver import resolve_port
 from networking.rpc_misc import client_server_interface_pb2, client_server_interface_pb2_grpc
 import numpy as np
 import grpc
@@ -20,7 +21,7 @@ class RPCServer(object):
         return self.server_interface.get_returns_batch(batch_size=batch_size, current_epoch=current_epoch,
                                                        max_delayed_return=max_delayed_return)
 
-    def start(self, max_workers=10, address="localhost", port=50051):
+    def start(self, max_workers=10, address="localhost", port=None):
         server = grpc.server(futures.ThreadPoolExecutor(max_workers=max_workers),
                              options=[('grpc.max_send_message_length', RPCServer.MAX_MESSAGE_LENGTH),
                                       ('grpc.max_receive_message_length', RPCServer.MAX_MESSAGE_LENGTH)],
@@ -29,7 +30,7 @@ class RPCServer(object):
         client_server_interface_pb2_grpc.add_CSInterfaceServicer_to_server(
             ServerServicer(self.server_interface), server)
 
-        server.add_insecure_port('{}:{}'.format(address, port))
+        server.add_insecure_port(resolve_port(address, port))
         server.start()
         self.grpc_server = server
 

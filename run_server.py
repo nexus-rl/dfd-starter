@@ -125,9 +125,8 @@ class ServerRunner(object):
         worker.update(current_state)
 
         worker.start(address="localhost", port=1025)
-
+        t1 = time.perf_counter()
         while cumulative_timesteps < ts_limit:
-            t1 = time.perf_counter()
             ret_rewards = []
             ret_novelties = []
             non_eval_returns = []
@@ -175,6 +174,7 @@ class ServerRunner(object):
                 delayed_ratio = n_delayed / len(non_eval_returns)
 
                 epoch_time = time.perf_counter() - t1
+                t1 = time.perf_counter()
                 epoch_report = {"Epoch":                learner.epoch,
                                 "Epoch Time":           epoch_time,
                                 "Cumulative Timesteps": cumulative_timesteps,

@@ -2,7 +2,7 @@ from learner import FiniteDifferences, FDState
 from worker import Agent, Worker, GRPCWorker
 from utils import SimpleNoiseSource, ImpalaEnvWrapper, AdaptiveOmega, SharedNoiseTable, RNGNoiseSource
 from strategy import StrategyHandler
-from custom_envs import simple_trap_env
+from custom_envs import simple_trap_env, rocketsim
 from policies import ImpalaPolicy, DiscretePolicy, AtariPolicy, MujocoPolicy
 import gym
 import procgen
@@ -368,7 +368,7 @@ if __name__ == "__main__":
     parser.add_argument("--noise_std", type=float, default=0.1)
     parser.add_argument("--batch_size", type=int, default=32)
     parser.add_argument("--optimizer", type=str, default="DSGD")
-    parser.add_argument("--normalize_obs", type=bool, default=True)
+    parser.add_argument('--normalize_obs', action=argparse.BooleanOptionalAction, default=True)
     parser.add_argument("--obs_stats_update_chance", type=float, default=0.01)
     parser.add_argument("--ent_coef", type=float, default=0)
     parser.add_argument("--seed", type=int, default=124, dest="random_seed")
@@ -388,6 +388,7 @@ if __name__ == "__main__":
     parser.add_argument("--wandb_group", type=str, default=None)
     parser.add_argument("--wandb_run_name", type=str, default=None)
     args = parser.parse_args()
+    print('Args', args)
     if args.operation == "train":
         train(
             optimizer=args.optimizer,

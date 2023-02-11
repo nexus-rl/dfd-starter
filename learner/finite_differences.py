@@ -23,6 +23,10 @@ class FiniteDifferences(object):
 
     def step(self, batch, policy_reward, policy_novelty, policy_entropy):
         rewards, novelties, entropies, perturbations = self._process_returns(batch)
+        if policy_reward is None:
+            policy_reward = 0
+            policy_entropy = 0
+            policy_novelty = 0
         if len(rewards) == 0:
             return 0
 

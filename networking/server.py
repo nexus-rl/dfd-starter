@@ -65,13 +65,14 @@ class ServerInterface(object):
         timesteps = 0
         n_delayed = 0
         n_discarded = 0
+        n_collected = 0
         rets = []
 
         # passing bs=None will pull out every waiting return instead of a specific number
         if batch_size is None:
             batch_size = max(len(self.waiting_returns), 1)
 
-        while len(rets) < batch_size:
+        while n_collected < batch_size:
             if len(self.waiting_returns) == 0:
                 time.sleep(0.01)
                 continue
@@ -88,6 +89,8 @@ class ServerInterface(object):
                     n_delayed += 1
 
             rets.append(ret)
+            if not ret.is_eval:
+                n_collected += 1
 
         return rets, timesteps, n_delayed, n_discarded
 

@@ -133,6 +133,7 @@ class ServerRunner(object):
 
         worker.start(address=self.bind_address, port=self.bind_port)
         t1 = time.perf_counter()
+        n_waiting_last = 0
         while cumulative_timesteps < ts_limit:
             ret_rewards = []
             ret_novelties = []
@@ -147,8 +148,12 @@ class ServerRunner(object):
                                                                                 max_delayed_return=max_delayed_return)
             consumed_timesteps = timesteps
 
-            # ignoring delayed here because those are included in n_timesteps
-            produced_timesteps = timesteps + n_discarded + n_waiting 
+            # I'm ignoring delayed here because those are included in
+            # n_timesteps. We also subtract the number of timesteps that were
+            # hanging out in the buffer at the start of the last epoch
+            produced_timesteps = timesteps + n_discarded + n_waiting - n_waiting_last
+
+            n_waiting_last = n_waiting
 
             print("received",len(returns))
             self.learner.discarded_returns += n_discarded
@@ -206,8 +211,8 @@ class ServerRunner(object):
                                 "Update Magnitude":     update_magnitude,
                                 "Omega":                self.omega.omega,
                                 "Discarded Returns":    learner.discarded_returns,
-                                "\nConsumed Steps/sec": consumed_steps_per_sec,
-                                "Produced Steps/sec":   produced_steps_per_sec,
+                                "\nConsumed Steps per Second": consumed_steps_per_sec,
+                                "Produced Steps per Second":   produced_steps_per_sec,
                                }
                 self._report_epoch(epoch_report)
 

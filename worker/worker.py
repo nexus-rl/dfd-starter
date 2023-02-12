@@ -2,6 +2,7 @@ from learner import FDReturn
 import torch
 import numpy as np
 from utils.math_helpers import WelfordRunningStat
+from utils import generate_random_id
 
 
 class Worker(object):
@@ -16,6 +17,7 @@ class Worker(object):
         self.eval_prob = eval_prob
         self.fixed_obs_stats = WelfordRunningStat(policy.input_shape)
         self.eval_only = eval_only
+        self.worker_id = generate_random_id()
 
     @torch.no_grad()
     def collect_returns(self, n=1):
@@ -55,4 +57,5 @@ class Worker(object):
         ret.entropy = ent
         ret.epoch = self.epoch
         ret.obs_stats_update = self.agent.obs_stats.serialize()
+        ret.worker_id = self.worker_id
         return ret

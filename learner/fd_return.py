@@ -14,14 +14,15 @@ class FDReturn(object):
         self.is_eval = False
         self.eval_states = []
         self.obs_stats_update = []
+        self.worker_id = ""
 
     def serialize(self):
         return self.reward, self.novelty, self.entropy, self.timesteps, self.encoded_noise, self.perturbation, \
-               self.epoch, self.is_eval, self.eval_states, self.obs_stats_update
+               self.epoch, self.is_eval, self.eval_states, self.obs_stats_update, self.worker_id
 
     def deserialize(self, other):
         self.reward, self.novelty, self.entropy, self.timesteps, self.encoded_noise, self.perturbation, self.epoch, \
-            self.is_eval, self.eval_states, self.obs_stats_update = other
+            self.is_eval, self.eval_states, self.obs_stats_update, self.worker_id = other
 
     def serialize_to_grpc(self):
         return client_server_interface_pb2.Return(
@@ -34,7 +35,8 @@ class FDReturn(object):
             is_eval=self.is_eval,
             eval_states=np.ravel(self.eval_states).tolist(),
             eval_states_shape=np.shape(self.eval_states),
-            obs_stats_update=self.obs_stats_update
+            obs_stats_update=self.obs_stats_update,
+            worker_id=self.worker_id
         )
 
     def deserialize_from_grpc(self, message):
@@ -47,7 +49,8 @@ class FDReturn(object):
         self.entropy = m.entropy
         self.timesteps = m.timesteps
         self.is_eval = m.is_eval
-        self.obs_stats_update = m.obs_stats_update
+        self.obs_stats_update = m.obs_stats_update,
+        self.worker_id = m.worker_id
 
         if self.is_eval:
             serialized_states = m.eval_states

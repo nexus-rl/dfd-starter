@@ -153,7 +153,11 @@ class ServerRunner(object):
             # hanging out in the buffer at the start of the last epoch
             produced_timesteps = timesteps + n_discarded + n_waiting - n_waiting_last
 
+            # keep track of how many are waiting now so we can subtract them
+            # from the next epoch's count
             n_waiting_last = n_waiting
+
+            worker_count = len(set(r.worker_id for r in returns))
 
             print("received",len(returns))
             self.learner.discarded_returns += n_discarded
@@ -211,8 +215,11 @@ class ServerRunner(object):
                                 "Update Magnitude":     update_magnitude,
                                 "Omega":                self.omega.omega,
                                 "Discarded Returns":    learner.discarded_returns,
-                                "\nConsumed Steps per Second": consumed_steps_per_sec,
+                                "\nTotal Consumed Steps": consumed_steps_per_sec,
+                                "Total Produced Steps":   produced_steps_per_sec,
+                                "Consumed Steps per Second": consumed_steps_per_sec,
                                 "Produced Steps per Second":   produced_steps_per_sec,
+                                "\nWorker Count":       worker_count,
                                }
                 self._report_epoch(epoch_report)
 

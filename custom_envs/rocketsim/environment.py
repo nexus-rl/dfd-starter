@@ -18,8 +18,13 @@ class Environment(gym.Env):
         self.last_action = None
         self.timeout_ticks = None
         self.goal_pos = None
+        self.last_agent_pos = None
+        self.last_ball_pos = None
         self.action_space = gym.spaces.Discrete(4)
-        self.observation_space = gym.spaces.Box(-1, 1, (14,))
+
+        obs_shape = np.shape(self.reset()[0])
+        self.observation_space = gym.spaces.Box(-1, 1, obs_shape)
+
         if render_mode == "human":
             pygame.init()
             self.screen = pygame.display.set_mode((1000, 800))
@@ -47,21 +52,60 @@ class Environment(gym.Env):
         self.arena.step(8)
 
         reward = self._reward_fn()
+
         done = self._distance_car_from_target(self.goal_pos) < GOAL_THRESHOLD
         self.timeout_ticks -= 1
         timeout = self.timeout_ticks <= 0
         self.last_action = action
         if self.screen:
             self.render()
-        return self._form_obs(), reward, done, timeout, {}
+        
+        obs = self._form_obs()
+
+        self.last_agent_pos = self._get_agent().get_pos()
+        self.last_ball_pos = self._get_ball().get_pos()
+
+        return obs, reward, done, timeout, {}
 
     def _subtract_vec3(self, a: Vec3, b: Vec3):
         return np.array([a.x - b.x, a.y - b.y, a.z - b.z])
 
-    def _distance_car_from_ball(self):
-        agent = self._get_agent()
-        ball = self._get_ball()
-        return np.linalg.norm(self._subtract_vec3(agent.get_pos(), ball.get_pos()))
+    def _vel_car_ball(self):
+        if self.last_agent_pos is None or self.last_ball_pos is None:
+            return 0.0
+
+        agent_pos = self._get_agent().get_pos()
+        ball_pos = self._get_ball().get_pos()
+
+        last_distance = self._subtract_vec3(self.last_ball_pos, self.last_agent_pos)
+        curr_distance = self._subtract_vec3(ball_pos, agent_pos)
+
+        # normalize by max combined car & ball speed
+        return np.linalg.norm(curr_distance - last_distance) / (6000.0 + 2300.0)
+
+    def _vel_ball_goal(self):
+        if self.last_ball_pos is None:
+            return 0.0
+
+        ball_pos = self._get_ball().get_pos()
+
+        last_distance = self._subtract_vec3(self.goal_pos, self.last_ball_pos)
+        curr_distance = self._subtract_vec3(self.goal_pos, ball_pos)
+
+        # normalize by max ball speed
+        return np.linalg.norm(curr_distance - last_distance) / 6000.0
+
+    def _vel_car_goal(self):
+        if self.last_agent_pos is None:
+            return 0.0
+
+        agent_pos = self._get_agent().get_pos()
+
+        last_distance = self._subtract_vec3(self.goal_pos, self.last_agent_pos)
+        curr_distance = self._subtract_vec3(self.goal_pos, agent_pos)
+
+        # normalize by max car speed
+        return np.linalg.norm(curr_distance - last_distance) / 2300.0
 
     def _distance_ball_from_target(self, target: Vec3):
         ball = self._get_ball()
@@ -72,10 +116,8 @@ class Environment(gym.Env):
         return np.linalg.norm(self._subtract_vec3(agent.get_pos(), target))
 
     def _reward_fn(self):
-        # car_ball_dist = self._distance_car_from_ball() / 10000
-        # ball_target_dist = self._distance_ball_from_target(GOAL) / 10000
-        car_target_dist = self._distance_car_from_target(self.goal_pos) / 10000
-        return -car_target_dist #- ball_target_dist
+        goal_reward = 1 if self._distance_car_from_target(self.goal_pos) < GOAL_THRESHOLD else 0
+        return self._vel_car_goal() * 0.1 + goal_reward * 0.9
 
     def reset(self, seed=None, options=None):
         if seed is not None:
@@ -89,14 +131,15 @@ class Environment(gym.Env):
         self.last_action = None
 
         ball = self._get_ball()
-        ball.pos = Vec3(0, 0, 5000)
+        # self.last_ball_pos = ball.pos = Vec3(self.rng.uniform(-3000, 3000), self.rng.uniform(-3000, 3000), 17)
+        self.last_ball_pos = ball.pos = Vec3(0, 0, 5000)
         # ball.vel = Vec3(0, 0, 0.5)
         self.arena.ball = ball
 
         agent = self._get_agent()
         # x = +- 3000
         # y = +- 3000
-        agent.pos = Vec3(self.rng.uniform(-3000, 3000), self.rng.uniform(-3000, 3000), 17)
+        self.last_agent_pos = agent.pos = Vec3(self.rng.uniform(-3000, 3000), self.rng.uniform(-3000, 3000), 17)
         agent.angles = Angle(0, 0, 0)
         agent.boost = 100
 
@@ -130,6 +173,7 @@ class Environment(gym.Env):
         # 15. Ball y velocity
         # 16. Ball z velocity
         # 17. Last action
+        # 18. Velocity of car toward goal
 
         POS_SCALE = 1/5000
         ANGLE_SCALE = 1/3.14159
@@ -159,7 +203,8 @@ class Environment(gym.Env):
             self.goal_pos.x * POS_SCALE,
             self.goal_pos.y * POS_SCALE,
             self.goal_pos.z * POS_SCALE,
-            -1 if self.last_action is None else (self.last_action * ACTION_SCALE)
+            -1 if self.last_action is None else (self.last_action * ACTION_SCALE),
+            self._vel_car_goal()
         ]
 
         return np.asarray(obs, dtype=np.float32)

@@ -32,8 +32,10 @@ class DiscretePolicy(Policy):
         return self.forward(x).numpy()
 
     def _build_model(self):
-        h1 = 64
-        h2 = 64
+        h1 = 128
+        h2 = 128
+        h3 = 128
+        h4 = 128
         self.model = nn.Sequential(
             nn.BatchNorm1d(self.input_shape),
             nn.Linear(self.input_shape, h1),
@@ -44,5 +46,13 @@ class DiscretePolicy(Policy):
             nn.ReLU(),
 
             nn.BatchNorm1d(h2),
-            nn.Linear(h2, self.output_shape),
+            nn.Linear(h2, h3),
+            nn.ReLU(),
+
+            nn.BatchNorm1d(h3),
+            nn.Linear(h3, h4),
+            nn.ReLU(),
+
+            nn.BatchNorm1d(h4),
+            nn.Linear(h4, self.output_shape),
             nn.Softmax(dim=-1))

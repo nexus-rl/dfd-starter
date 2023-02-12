@@ -170,7 +170,9 @@ class ServerRunner(object):
             cumulative_timesteps += timesteps
 
             for ret in returns:
-                global_obs_stats.increment_from_obs_stats_update(ret.obs_stats_update)
+                if self.normalize_obs:
+                    global_obs_stats.increment_from_obs_stats_update(ret.obs_stats_update)
+
                 if ret.is_eval:
                     any_eval = True
                     if self.policy_reward is None:
@@ -234,7 +236,8 @@ class ServerRunner(object):
             current_state.strategy_history = strategy_handler.strategy_tensor
             current_state.policy_params = policy.serialize()
             current_state.epoch = learner.epoch
-            current_state.obs_stats = global_obs_stats.serialize()
+            if self.normalize_obs:
+                current_state.obs_stats = global_obs_stats.serialize()
             worker.update(current_state)
 
         worker.stop()

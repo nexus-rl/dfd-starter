@@ -25,7 +25,7 @@ class ServerRunner(object):
                  env_id="LunarLanderContinuous-v2",
                  normalize_obs=True,
                  obs_stats_update_chance=0.01,
-                 timestep_limit=50_000_000,
+                 timestep_limit=50_000_000_000,
                  learning_rate=0.01,
                  noise_std=0.02,
                  batch_size=40,

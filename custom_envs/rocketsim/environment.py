@@ -1,12 +1,13 @@
 from rocketsim import Angle, Vec3
 from rocketsim.sim import Arena, CarConfig, GameMode, Team, Car, CarControls, Ball
 
+import pygame
 import numpy as np
 import os
 import gym
 import os
 
-GOAL = Vec3(0, 5000, 93)
+GOAL = Vec3(0, 3000, 0)
 GOAL_THRESHOLD = 100
 
 class Environment(gym.Env):
@@ -19,31 +20,39 @@ class Environment(gym.Env):
         self.timeout_ticks = None
         self.action_space = gym.spaces.Discrete(4)
         self.observation_space = gym.spaces.Box(-1, 1, (17,))
-        self.render_mode = render_mode
+        if render_mode == "human":
+            pygame.init()
+            self.screen = pygame.display.set_mode((1000, 800))
+        else:
+            self.screen = None
 
     def step(self, action):
         if self.arena is None:
             raise Exception("Arena not initialized, you must call reset() before step()")
 
         # Controls are turn left, turn right, accelerate, and brake
-        controls = CarControls(throttle=0.5)
+        controls = CarControls(throttle=0)
         if action == 0:
+            controls.throttle = 0.5
             controls.steer = -1
         elif action == 1:
+            controls.throttle = 0.5
             controls.steer = 1
         elif action == 2:
             controls.throttle = 1
         elif action == 3:
-            controls.throttle = 0
+            controls.throttle = -1
 
         self.arena.set_car_controls(self.agent_id, controls)
         self.arena.step(8)
 
         reward = self._reward_fn()
-        done = self._distance_ball_from_target(GOAL) < GOAL_THRESHOLD
+        done = self._distance_car_from_target(GOAL) < GOAL_THRESHOLD
         self.timeout_ticks -= 1
         timeout = self.timeout_ticks <= 0
         self.last_action = action
+        if self.screen:
+            self.render()
         return self._form_obs(), reward, done, timeout, {}
 
     def _subtract_vec3(self, a: Vec3, b: Vec3):
@@ -58,10 +67,15 @@ class Environment(gym.Env):
         ball = self._get_ball()
         return np.linalg.norm(self._subtract_vec3(ball.get_pos(), target))
 
+    def _distance_car_from_target(self, target: Vec3):
+        agent = self._get_agent()
+        return np.linalg.norm(self._subtract_vec3(agent.get_pos(), target))
+
     def _reward_fn(self):
-        car_ball_dist = self._distance_car_from_ball() / 10000
-        ball_target_dist = self._distance_ball_from_target(GOAL) / 10000
-        return -car_ball_dist - ball_target_dist
+        # car_ball_dist = self._distance_car_from_ball() / 10000
+        # ball_target_dist = self._distance_ball_from_target(GOAL) / 10000
+        car_target_dist = self._distance_car_from_target(GOAL) / 10000
+        return -car_target_dist #- ball_target_dist
 
     def reset(self, seed=None, options=None):
         if seed is not None:
@@ -71,7 +85,7 @@ class Environment(gym.Env):
             self.arena = Arena(GameMode.Soccar)
             self.agent_id = self.arena.add_car(Team.Blue, CarConfig.Octane)
 
-        self.timeout_ticks = 3000
+        self.timeout_ticks = 200
         self.last_action = None
 
         ball = self._get_ball()
@@ -79,7 +93,7 @@ class Environment(gym.Env):
         self.arena.ball = ball
 
         agent = self._get_agent()
-        agent.pos = Vec3(100, 100, 17)
+        agent.pos = Vec3(1000, 1000, 17)
         agent.angles = Angle(0, 0, 0)
         agent.boost = 100
         self.arena.set_car(self.agent_id, agent)
@@ -152,4 +166,55 @@ class Environment(gym.Env):
         pass
 
     def render(self):
-        pass
+        if self.screen is None:
+            return
+        else:
+            display = self.screen
+        display.fill((255, 255, 255))
+
+        # Get the agent and ball
+        agent_pos = self._get_agent().get_pos()
+        ball_pos = self._get_ball().get_pos()
+
+        # Draw the agent
+        pygame.draw.circle(display, (255, 0, 0), (int(400 + agent_pos.x / 10), int(300 + agent_pos.y/10)), 10)
+        # Draw text above the agent with "Agent: x,y,z"
+        font = pygame.font.SysFont('Arial', 12)
+        text = font.render(f"Agent: {agent_pos.x:.2f}, {agent_pos.y:.2f}, {agent_pos.z:.2f}", True, (0, 0, 0))
+        display.blit(text, (-100 + int(400 + agent_pos.x / 10), -25 + int(300 + agent_pos.y / 10)))
+        last_action_str = "None"
+        if self.last_action == 0:
+            last_action_str = "Left"
+        elif self.last_action == 1:
+            last_action_str = "Right"
+        elif self.last_action == 2:
+            last_action_str = "Forward"
+        elif self.last_action == 3:
+            last_action_str = "Stop"
+        text = font.render(f"Last action: {last_action_str}", True, (0, 0, 0))
+        display.blit(text, (-120 + int(400 + agent_pos.x / 10), -5 + int(300 + agent_pos.y / 10)))
+
+        # Draw the ball
+        pygame.draw.circle(display, (0, 0, 255), (int(400 + ball_pos.x / 10), int(300 + ball_pos.y / 10)), 5)
+        # Draw text above the ball with "Ball: x,y,z"
+        text = font.render(f"Ball: {ball_pos.x:.2f}, {ball_pos.y:.2f}, {ball_pos.z:.2f}", True, (0, 0, 0))
+        display.blit(text, (-100 + int(400 + ball_pos.x / 10), -25 + int(300 + ball_pos.y / 10)))
+
+
+        # Draw the goal
+        pygame.draw.circle(display, (0, 255, 0), (int(400 + GOAL.x / 10), int(300 + GOAL.y / 10)), 10)
+        # Draw text above the goal with "Goal: x,y,z"
+        text = font.render(f"Goal: {GOAL.x:.2f}, {GOAL.y:.2f}, {GOAL.z:.2f}", True, (0, 0, 0))
+        display.blit(text, (-100 + int(400 + GOAL.x / 10), -25 + int(300 + GOAL.y / 10)))
+
+
+        pygame.display.update()
+
+        # Sleep for 16ms
+        pygame.time.wait(16)
+
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                pygame.quit()
+                import sys
+                sys.exit()

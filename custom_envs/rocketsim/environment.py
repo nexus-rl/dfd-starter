@@ -68,24 +68,24 @@ class Environment(gym.Env):
         agent_pos = self._get_agent().get_pos()
         ball_pos = self._get_ball().get_pos()
 
-        last_distance = self._subtract_vec3(self.last_agent_pos, self.last_ball_pos)
-        curr_distance = self._subtract_vec3(agent_pos, ball_pos)
+        last_distance = self._subtract_vec3(self.last_ball_pos, self.last_agent_pos)
+        curr_distance = self._subtract_vec3(ball_pos, agent_pos)
 
         return np.linalg.norm(curr_distance - last_distance)
 
     def _vel_ball_goal(self):
         ball_pos = self._get_ball().get_pos()
 
-        last_distance = self._subtract_vec3(self.last_ball_pos, self.goal_pos)
-        curr_distance = self._subtract_vec3(ball_pos, self.goal_pos)
+        last_distance = self._subtract_vec3(self.goal_pos, self.last_ball_pos)
+        curr_distance = self._subtract_vec3(self.goal_pos, ball_pos)
 
         return np.linalg.norm(curr_distance - last_distance)
 
     def _vel_car_goal(self):
         agent_pos = self._get_agent().get_pos()
 
-        last_distance = self._subtract_vec3(self.last_agent_pos, self.goal_pos)
-        curr_distance = self._subtract_vec3(agent_pos, self.goal_pos)
+        last_distance = self._subtract_vec3(self.goal_pos, self.last_agent_pos)
+        curr_distance = self._subtract_vec3(self.goal_pos, agent_pos)
 
         return np.linalg.norm(curr_distance - last_distance)
 

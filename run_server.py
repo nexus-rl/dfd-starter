@@ -135,9 +135,17 @@ class ServerRunner(object):
             non_eval_returns = []
             any_eval = False
 
-            returns, timesteps, n_delayed, n_discarded = worker.collect_returns(batch_size=batch_size,
+            consumed_steps_per_sec = 0
+            produced_steps_per_sec = 0
+
+            returns, timesteps, n_delayed, n_discarded, n_waiting = worker.collect_returns(batch_size=batch_size,
                                                                                 current_epoch=learner.epoch,
                                                                                 max_delayed_return=max_delayed_return)
+            consumed_timesteps = timesteps
+
+            # ignoring delayed here because those are included in n_timesteps
+            produced_timesteps = timesteps + n_discarded + n_waiting 
+
             print("received",len(returns))
             self.learner.discarded_returns += n_discarded
             cumulative_timesteps += timesteps
@@ -178,6 +186,10 @@ class ServerRunner(object):
 
                 epoch_time = time.perf_counter() - t1
                 t1 = time.perf_counter()
+
+                consumed_steps_per_sec = consumed_timesteps / epoch_time
+                produced_steps_per_sec = produced_timesteps / epoch_time
+
                 epoch_report = {"Epoch":                learner.epoch,
                                 "Epoch Time":           epoch_time,
                                 "Cumulative Timesteps": cumulative_timesteps,
@@ -189,7 +201,10 @@ class ServerRunner(object):
                                 "\nDelayed Ratio":      delayed_ratio,
                                 "Update Magnitude":     update_magnitude,
                                 "Omega":                self.omega.omega,
-                                "Discarded Returns":    learner.discarded_returns}
+                                "Discarded Returns":    learner.discarded_returns,
+                                "\nConsumed Steps/sec": consumed_steps_per_sec,
+                                "Produced Steps/sec":   produced_steps_per_sec,
+                               }
                 self._report_epoch(epoch_report)
 
             current_state.strategy_frames = zeta

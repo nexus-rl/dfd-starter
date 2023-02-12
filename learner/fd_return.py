@@ -49,7 +49,7 @@ class FDReturn(object):
         self.entropy = m.entropy
         self.timesteps = m.timesteps
         self.is_eval = m.is_eval
-        self.obs_stats_update = m.obs_stats_update,
+        self.obs_stats_update = m.obs_stats_update
         self.worker_id = m.worker_id
 
         if self.is_eval:

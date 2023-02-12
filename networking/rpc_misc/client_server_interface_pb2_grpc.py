@@ -2,7 +2,7 @@
 """Client and server classes corresponding to protobuf-defined services."""
 import grpc
 
-import client_server_interface_pb2 as client__server__interface__pb2
+from . import client_server_interface_pb2 as client__server__interface__pb2
 
 
 class CSInterfaceStub(object):

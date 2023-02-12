@@ -1,7 +1,8 @@
 import random
 import string
+from uuid import uuid4 as uuid
 
 alphabet = string.ascii_lowercase + string.digits
 
-def generate_random_id(length: int = 8) -> str:
-    return ''.join(random.choices(alphabet, k=length))
+def generate_random_id() -> str:
+    return uuid().hex

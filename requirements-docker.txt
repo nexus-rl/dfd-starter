@@ -1,0 +1,12 @@
+# needed for the rocketsim-py build
+maturin==0.14.12
+
+protobuf==4.21.12
+grpcio==1.51.1
+gym==0.26.2
+mujoco==2.3.1
+numpy==1.24.2
+--find-links https://download.pytorch.org/whl/torch_stable.html
+torch==1.13.1
+wandb==0.13.9
+git+https://github.com/nexus-rl/rocketsim-py.git#a511ad3e22975cb89ab3669135468d49b73af6b8

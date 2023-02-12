@@ -1,4 +1,5 @@
 protobuf==4.21.12
+pygame==2.1.2
 grpcio==1.51.1
 gym==0.26.2
 mujoco==2.3.1

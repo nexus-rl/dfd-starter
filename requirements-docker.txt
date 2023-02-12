@@ -1,6 +1,3 @@
-# needed for the rocketsim-py build
-maturin==0.14.12
-
 protobuf==4.21.12
 grpcio==1.51.1
 gym==0.26.2

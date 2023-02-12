@@ -165,6 +165,7 @@ class ServerRunner(object):
             cumulative_timesteps += timesteps
 
             for ret in returns:
+                print("Obs_stats_update: %s" % ret.obs_stats_update)
                 global_obs_stats.increment_from_obs_stats_update(ret.obs_stats_update)
                 if ret.is_eval:
                     any_eval = True

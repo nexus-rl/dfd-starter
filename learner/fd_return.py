@@ -17,12 +17,12 @@ class FDReturn(object):
         self.worker_id = ""
 
     def serialize(self):
-        return self.reward, self.novelty, self.entropy, self.timesteps, self.encoded_noise, self.perturbation, \
-               self.epoch, self.is_eval, self.eval_states, self.obs_stats_update, self.worker_id
+        return self.worker_id, self.reward, self.novelty, self.entropy, self.timesteps, self.encoded_noise, self.perturbation, \
+               self.epoch, self.is_eval, self.eval_states, self.obs_stats_update
 
     def deserialize(self, other):
-        self.reward, self.novelty, self.entropy, self.timesteps, self.encoded_noise, self.perturbation, self.epoch, \
-            self.is_eval, self.eval_states, self.obs_stats_update, self.worker_id = other
+        self.worker_id, self.reward, self.novelty, self.entropy, self.timesteps, self.encoded_noise, self.perturbation, self.epoch, \
+            self.is_eval, self.eval_states, self.obs_stats_update = other
 
     def serialize_to_grpc(self):
         return client_server_interface_pb2.Return(

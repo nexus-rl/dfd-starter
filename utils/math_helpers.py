@@ -67,6 +67,12 @@ class WelfordRunningStat(object):
 
     def increment_from_obs_stats_update(self, obs_stats_update):
         n = np.prod(self.shape)
+        print(f"n: {n}")
+        print(f"self.shape: {self.shape}")
+        print(f"self.running_mean.shape: {self.running_mean.shape}")
+        print(f"obs_stats_update[:n]: {obs_stats_update[:n]}")
+        print(f"len(obs_stats_update[:n]): {len(obs_stats_update[:n])}")
+
         other_mean = np.asarray(obs_stats_update[:n], dtype=np.float32).reshape(self.running_mean.shape)
         other_var = np.asarray(obs_stats_update[n:-1], dtype=np.float32).reshape(self.running_variance.shape)
         other_count = obs_stats_update[-1]

@@ -29,17 +29,17 @@ message ServerState
 
 message Return
 {
-  int64 epoch = 1;
-  string encoded_noise = 2;
-  float reward = 3;
-  float novelty = 4;
-  float entropy = 5;
-  int32 timesteps = 6;
-  bool is_eval = 7;
-  repeated float eval_states = 8;
-  repeated int32 eval_states_shape = 9;
-  repeated float obs_stats_update = 10;
-  string worker_id = 11;
+  string worker_id = 1;
+  int64 epoch = 2;
+  string encoded_noise = 3;
+  float reward = 4;
+  float novelty = 5;
+  float entropy = 6;
+  int32 timesteps = 7;
+  bool is_eval = 8;
+  repeated float eval_states = 9;
+  repeated int32 eval_states_shape = 10;
+  repeated float obs_stats_update = 11;
 }
 
 message ReturnArray

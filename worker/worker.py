@@ -63,4 +63,5 @@ class Worker(object):
         ret.entropy = ent
         ret.epoch = self.epoch
         ret.obs_stats_update = self.agent.obs_stats.serialize()
+        ret.worker_id = self.worker_id
         return ret

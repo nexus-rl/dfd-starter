@@ -67,6 +67,7 @@ class ServerInterface(object):
         n_delayed = 0
         n_discarded = 0
         n_collected = 0
+        n_waiting = 0
         rets = []
 
         # passing batch_size=None will pull out every waiting return instead of a specific number
@@ -93,7 +94,9 @@ class ServerInterface(object):
             if not ret.is_eval:
                 n_collected += 1
 
-        return rets, timesteps, n_delayed, n_discarded
+        n_waiting = len(self.waiting_returns)
+
+        return rets, timesteps, n_delayed, n_discarded, n_waiting
 
     def update(self, server_state):
         self.server_state.epoch = server_state.epoch

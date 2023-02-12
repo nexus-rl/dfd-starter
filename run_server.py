@@ -22,7 +22,7 @@ class ServerRunner(object):
                  env_id="LunarLanderContinuous-v2",
                  normalize_obs=True,
                  obs_stats_update_chance=0.01,
-                 timestep_limit=50_000_000_000,
+                 timestep_limit=None,
                  learning_rate=0.01,
                  noise_std=0.02,
                  batch_size=40,
@@ -140,7 +140,7 @@ class ServerRunner(object):
 
         n_waiting_last = 0
 
-        while cumulative_timesteps < ts_limit:
+        while ts_limit is None or cumulative_timesteps < ts_limit:
             ret_rewards = []
             ret_novelties = []
             non_eval_returns = []
@@ -321,7 +321,7 @@ def train(optimizer, env_id=None, normalize_obs=True, obs_stats_update_chance=0.
           omega_default_value=1, omega_improvement_threshold=1.035, omega_reward_history_size=20,
           omega_min_value=0, omega_max_value=1, omega_steps_to_min=25, omega_steps_to_max=75,
           log_to_wandb=True, existing_wandb_run=None, wandb_project=None, wandb_group=None,
-          wandb_run_name=None, bind_port=None, bind_address="localhost"):
+          wandb_run_name=None, bind_port=None, bind_address="localhost", timestep_limit=None):
 
     KNOWN_OPTIMIZERS = {
         "DSGD": lambda: DSGD,
@@ -385,7 +385,8 @@ def train(optimizer, env_id=None, normalize_obs=True, obs_stats_update_chance=0.
                           wandb_group=wandb_group,
                           wandb_run_name=wandb_run_name,
                           bind_port=bind_port,
-                          bind_address=bind_address
+                          bind_address=bind_address,
+                          timestep_limit=timestep_limit
                           )
     runner.train()
 
@@ -394,6 +395,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("operation", type=str, choices=["train", "sweep"])
     parser.add_argument("--env", type=str)
+    parser.add_argument("--timestep_limit", type=int, default=None)
     parser.add_argument("--log_to_wandb", action="store_true")
     parser.add_argument("--learning_rate", type=float, default=0.01)
     parser.add_argument("--noise_std", type=float, default=0.1)
@@ -422,6 +424,7 @@ if __name__ == "__main__":
     parser.add_argument("--bind_address", type=str, default="localhost")
     args = parser.parse_args()
     print('Args', args)
+
     if args.operation == "train":
         train(
             optimizer=args.optimizer,
@@ -450,7 +453,8 @@ if __name__ == "__main__":
             wandb_group=args.wandb_group,
             wandb_run_name=args.wandb_run_name,
             bind_port=args.bind_port,
-            bind_address=args.bind_address
+            bind_address=args.bind_address,
+            timestep_limit=args.timestep_limit
         )
     elif args.operation == "sweep":
         raise NotImplementedError("Sweep not implemented yet, someone should do that.")

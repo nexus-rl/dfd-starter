@@ -28,12 +28,15 @@ class ServerRunner(object):
                  batch_size=40,
                  ent_coef=0.0,
                  random_seed=123,
-                 max_delayed_return=100,
+                 max_delayed_return=10,
                  vbn_buffer_size=0,
-                 zeta_size=2,
-                 max_strategy_history_size=2,
+                 collect_zeta=True,
+                 zeta_size=100,
+                 max_strategy_history_size=0,
                  eval_prob=0.05,
-                 omega_default_value=1,
+                 episode_timestep_limit=-1,
+                 observation_clip_range=10,
+                 omega_default_value=0,
                  omega_improvement_threshold=1.035,
                  omega_reward_history_size=20,
                  omega_min_value=0,
@@ -42,9 +45,9 @@ class ServerRunner(object):
                  omega_steps_to_max=75,
                  log_to_wandb=False,
                  existing_wandb_run=None,
-                 wandb_project="fd-starter",
+                 wandb_project="dfd-starter",
                  wandb_group=None,
-                 wandb_run_name="dfd_exp_buffer_pert_dist"):
+                 wandb_run_name="dfd_test_run"):
 
         self.wandb_run = None
 
@@ -103,7 +106,10 @@ class ServerRunner(object):
         self.current_state.epoch = self.learner.epoch
         self.current_state.cfg = {"env_id": env_id, "noise_std": noise_std, "normalize_obs": self.normalize_obs,
                                   "obs_stats_update_chance": obs_stats_update_chance, "random_seed": random_seed,
-                                  "eval_prob": eval_prob, "max_strategy_history_size": max_strategy_history_size}
+                                  "eval_prob": eval_prob, "max_strategy_history_size": max_strategy_history_size,
+                                  "observation_clip_range":observation_clip_range,
+                                  "episode_timestep_limit": episode_timestep_limit,
+                                  "collect_zeta": collect_zeta and self.zeta_size > 0}
 
         self.worker = GRPCWorker(self.current_state)
 
@@ -126,6 +132,7 @@ class ServerRunner(object):
 
         worker.start(address="localhost", port=1025)
         t1 = time.perf_counter()
+
         while cumulative_timesteps < ts_limit:
             ret_rewards = []
             ret_novelties = []
@@ -135,7 +142,7 @@ class ServerRunner(object):
             returns, timesteps, n_delayed, n_discarded = worker.collect_returns(batch_size=batch_size,
                                                                                 current_epoch=learner.epoch,
                                                                                 max_delayed_return=max_delayed_return)
-            print("received",len(returns))
+            # print("received",len(returns))
             self.learner.discarded_returns += n_discarded
             cumulative_timesteps += timesteps
 
@@ -152,17 +159,18 @@ class ServerRunner(object):
                         self.policy_entropy = self.policy_entropy * 0.9 + ret.entropy * 0.1
                         self.policy_novelty = self.policy_novelty * 0.9 + ret.novelty * 0.1
                     self.rng.shuffle(idxs)
-                    zeta[idxs[:len(ret.eval_states)]] = ret.eval_states[:self.zeta_size]
+                    if self.zeta_size > 0 and len(ret.eval_states) > 0:
+                        zeta[idxs[:len(ret.eval_states)]] = ret.eval_states[:self.zeta_size]
                 else:
                     non_eval_returns.append(ret)
                     ret_rewards.append(ret.reward)
                     ret_novelties.append(ret.novelty)
 
-            # print("collected {} returns of which {} are delayed.".format(len(returns), n_delayed))
             if any_eval:
                 strategy_handler.set_zeta(zeta)
-                if len(ret_rewards) != 0:
-                    self.omega.step(np.mean(ret_rewards))
+                self.omega.step(self.policy_reward)
+                # if len(ret_rewards) != 0:
+                #     self.omega.step(np.mean(ret_rewards))
 
             update_magnitude = learner.step(non_eval_returns, self.policy_reward, self.policy_novelty, self.policy_entropy)
 
@@ -175,6 +183,7 @@ class ServerRunner(object):
 
                 epoch_time = time.perf_counter() - t1
                 t1 = time.perf_counter()
+
                 epoch_report = {"Epoch":                learner.epoch,
                                 "Epoch Time":           epoch_time,
                                 "Cumulative Timesteps": cumulative_timesteps,

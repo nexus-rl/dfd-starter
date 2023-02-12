@@ -14,25 +14,26 @@ class SparseHistoryManager(object):
         self.known_dists = {}
         self.strategy_distance_fn = strategy_distance_fn
 
-    def submit_policy(self, policy):
+    def submit_policy(self, policy, obs_stats=None):
         """
         Function to submit a policy to the history of policies we examine when computing the novelty of a new policy.
         :param policy: The policy to submit.
+        :param obs_stats: A tuple containing (mean, standard deviation) statistics about the observations.
         :return:
         """
 
         point = StrategyPoint(self.policy, policy.get_trainable_flat())
         if len(self.strategy_points) >= self.max_history_size and self.zeta is not None and len(self.zeta) > 0:
-            return self._replace_point(point)
+            return self._replace_point(point, obs_stats=obs_stats)
         else:
             self.strategy_points.append(point)
-
         return None
 
-    def evaluate_strategies(self, zeta):
+    def evaluate_strategies(self, zeta, obs_stats=None):
         """
         Function to evaluate the strategy of all policies in the history we are tracking on a set of states.
         :param zeta: The states on which strategies will be evaluated.
+        :param obs_stats: A tuple containing (mean, standard deviation) statistics about the observations.
         :return: A ndarray containing every strategy in our history.
         """
 
@@ -40,7 +41,7 @@ class SparseHistoryManager(object):
         strategy_tensor = []
         strategy_points = self.strategy_points
         for point in strategy_points:
-            strategy_tensor.append(point.evaluate_strategy(zeta))
+            strategy_tensor.append(point.evaluate_strategy(zeta, obs_stats=obs_stats))
 
         self._construct_table()
         self.strategy_tensor = np.asarray(strategy_tensor)
@@ -70,7 +71,7 @@ class SparseHistoryManager(object):
         self.known_dists = known_dists
         self._update_strategy_point_dists()
 
-    def _replace_point(self, point):
+    def _replace_point(self, point, obs_stats=None):
         """
         Function to determine whether a policy should be replaced and to replace one if it should. A policy will only
         replace an older one if its novelty relative to our history is greater than the smallest distance between any
@@ -80,7 +81,7 @@ class SparseHistoryManager(object):
         :return:
         """
 
-        strategy = point.evaluate_strategy(self.zeta)
+        strategy = point.evaluate_strategy(self.zeta, obs_stats=obs_stats)
         # Here we compute both the novelty of the policy (distance between it and its nearest neighbor from our history)
         # and the distance between the candidate policy and every other policy in our history.
         novelty, dists = math_helpers.compute_strategy_novelty(strategy, self.strategy_tensor, return_all_dists=True,
@@ -105,7 +106,6 @@ class SparseHistoryManager(object):
 
             self._update_strategy_point_dists()
             return idx
-
         return -1
 
     def _update_strategy_point_dists(self):

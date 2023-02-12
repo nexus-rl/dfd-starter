@@ -15,11 +15,14 @@ class StrategyPoint(object):
         self.reset_dists()
 
     @torch.no_grad()
-    def evaluate_strategy(self, zeta):
+    def evaluate_strategy(self, zeta, obs_stats=None):
         old = self.policy.get_trainable_flat()
         self.policy.set_trainable_flat(self.flat)
-
-        self.strategy = self.policy.get_strategy(zeta)
+        if obs_stats is not None:
+            mean, std = obs_stats
+            self.strategy = self.policy.get_strategy((zeta - mean) / std)
+        else:
+            self.strategy = self.policy.get_strategy(zeta)
         self.policy.set_trainable_flat(old)
 
         return self.strategy

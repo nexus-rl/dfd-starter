@@ -2,8 +2,7 @@
 """Client and server classes corresponding to protobuf-defined services."""
 import grpc
 
-from . import client_server_interface_pb2 as proto_dot_client__server__interface__pb2
-
+from . import client_server_interface_pb2 as client__server__interface__pb2
 
 class CSInterfaceStub(object):
     """Missing associated documentation comment in .proto file."""
@@ -16,23 +15,23 @@ class CSInterfaceStub(object):
         """
         self.GetConfig = channel.unary_unary(
                 '/CSInterface/GetConfig',
-                request_serializer=proto_dot_client__server__interface__pb2.Null.SerializeToString,
-                response_deserializer=proto_dot_client__server__interface__pb2.Config.FromString,
+                request_serializer=client__server__interface__pb2.Null.SerializeToString,
+                response_deserializer=client__server__interface__pb2.Config.FromString,
                 )
         self.GetServerState = channel.unary_unary(
                 '/CSInterface/GetServerState',
-                request_serializer=proto_dot_client__server__interface__pb2.Null.SerializeToString,
-                response_deserializer=proto_dot_client__server__interface__pb2.ServerState.FromString,
+                request_serializer=client__server__interface__pb2.Null.SerializeToString,
+                response_deserializer=client__server__interface__pb2.ServerState.FromString,
                 )
         self.SubmitReturn = channel.unary_unary(
                 '/CSInterface/SubmitReturn',
-                request_serializer=proto_dot_client__server__interface__pb2.Return.SerializeToString,
-                response_deserializer=proto_dot_client__server__interface__pb2.Null.FromString,
+                request_serializer=client__server__interface__pb2.Return.SerializeToString,
+                response_deserializer=client__server__interface__pb2.Null.FromString,
                 )
         self.SubmitReturns = channel.unary_unary(
                 '/CSInterface/SubmitReturns',
-                request_serializer=proto_dot_client__server__interface__pb2.ReturnArray.SerializeToString,
-                response_deserializer=proto_dot_client__server__interface__pb2.Null.FromString,
+                request_serializer=client__server__interface__pb2.ReturnArray.SerializeToString,
+                response_deserializer=client__server__interface__pb2.Null.FromString,
                 )
 
 
@@ -68,23 +67,23 @@ def add_CSInterfaceServicer_to_server(servicer, server):
     rpc_method_handlers = {
             'GetConfig': grpc.unary_unary_rpc_method_handler(
                     servicer.GetConfig,
-                    request_deserializer=proto_dot_client__server__interface__pb2.Null.FromString,
-                    response_serializer=proto_dot_client__server__interface__pb2.Config.SerializeToString,
+                    request_deserializer=client__server__interface__pb2.Null.FromString,
+                    response_serializer=client__server__interface__pb2.Config.SerializeToString,
             ),
             'GetServerState': grpc.unary_unary_rpc_method_handler(
                     servicer.GetServerState,
-                    request_deserializer=proto_dot_client__server__interface__pb2.Null.FromString,
-                    response_serializer=proto_dot_client__server__interface__pb2.ServerState.SerializeToString,
+                    request_deserializer=client__server__interface__pb2.Null.FromString,
+                    response_serializer=client__server__interface__pb2.ServerState.SerializeToString,
             ),
             'SubmitReturn': grpc.unary_unary_rpc_method_handler(
                     servicer.SubmitReturn,
-                    request_deserializer=proto_dot_client__server__interface__pb2.Return.FromString,
-                    response_serializer=proto_dot_client__server__interface__pb2.Null.SerializeToString,
+                    request_deserializer=client__server__interface__pb2.Return.FromString,
+                    response_serializer=client__server__interface__pb2.Null.SerializeToString,
             ),
             'SubmitReturns': grpc.unary_unary_rpc_method_handler(
                     servicer.SubmitReturns,
-                    request_deserializer=proto_dot_client__server__interface__pb2.ReturnArray.FromString,
-                    response_serializer=proto_dot_client__server__interface__pb2.Null.SerializeToString,
+                    request_deserializer=client__server__interface__pb2.ReturnArray.FromString,
+                    response_serializer=client__server__interface__pb2.Null.SerializeToString,
             ),
     }
     generic_handler = grpc.method_handlers_generic_handler(
@@ -108,8 +107,8 @@ class CSInterface(object):
             timeout=None,
             metadata=None):
         return grpc.experimental.unary_unary(request, target, '/CSInterface/GetConfig',
-            proto_dot_client__server__interface__pb2.Null.SerializeToString,
-            proto_dot_client__server__interface__pb2.Config.FromString,
+            client__server__interface__pb2.Null.SerializeToString,
+            client__server__interface__pb2.Config.FromString,
             options, channel_credentials,
             insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
 
@@ -125,8 +124,8 @@ class CSInterface(object):
             timeout=None,
             metadata=None):
         return grpc.experimental.unary_unary(request, target, '/CSInterface/GetServerState',
-            proto_dot_client__server__interface__pb2.Null.SerializeToString,
-            proto_dot_client__server__interface__pb2.ServerState.FromString,
+            client__server__interface__pb2.Null.SerializeToString,
+            client__server__interface__pb2.ServerState.FromString,
             options, channel_credentials,
             insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
 
@@ -142,8 +141,8 @@ class CSInterface(object):
             timeout=None,
             metadata=None):
         return grpc.experimental.unary_unary(request, target, '/CSInterface/SubmitReturn',
-            proto_dot_client__server__interface__pb2.Return.SerializeToString,
-            proto_dot_client__server__interface__pb2.Null.FromString,
+            client__server__interface__pb2.Return.SerializeToString,
+            client__server__interface__pb2.Null.FromString,
             options, channel_credentials,
             insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
 
@@ -159,7 +158,7 @@ class CSInterface(object):
             timeout=None,
             metadata=None):
         return grpc.experimental.unary_unary(request, target, '/CSInterface/SubmitReturns',
-            proto_dot_client__server__interface__pb2.ReturnArray.SerializeToString,
-            proto_dot_client__server__interface__pb2.Null.FromString,
+            client__server__interface__pb2.ReturnArray.SerializeToString,
+            client__server__interface__pb2.Null.FromString,
             options, channel_credentials,
             insecure, call_credentials, compression, wait_for_ready, timeout, metadata)

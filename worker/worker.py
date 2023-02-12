@@ -5,7 +5,9 @@ from utils.math_helpers import WelfordRunningStat
 
 
 class Worker(object):
-    def __init__(self, policy, agent, noise_source, strategy_handler, sigma=0.02, eval_prob=0.1, random_seed=123):
+    def __init__(self, policy, agent, noise_source, strategy_handler, worker_id,
+                 collect_zeta=False, sigma=0.02,eval_prob=0.1, random_seed=123):
+
         self.policy = policy
         self.agent = agent
         self.noise_source = noise_source
@@ -14,6 +16,8 @@ class Worker(object):
         self.epoch = -1
         self.rng = np.random.RandomState(random_seed)
         self.eval_prob = eval_prob
+        self.collect_zeta = collect_zeta
+        self.worker_id = worker_id
         self.fixed_obs_stats = WelfordRunningStat(policy.input_shape)
 
     @torch.no_grad()
@@ -38,19 +42,22 @@ class Worker(object):
         return returns
 
     def update(self, state):
+        self.strategy_handler.update_from_server_state(state)
         self.policy.deserialize(state.policy_params)
         self.epoch = state.epoch
         self.fixed_obs_stats.deserialize(state.obs_stats)
 
     def _build_ret(self, encoded_perturbation, is_eval):
         ret = FDReturn()
-        rew, ent, timesteps = self.agent.collect_return(eval_run=is_eval, save_states=is_eval,
+        ret.worker_id = self.worker_id
+        rew, ent, timesteps = self.agent.collect_return(eval_run=is_eval, save_states=self.collect_zeta and is_eval,
                                                         mean=self.fixed_obs_stats.mean, std=self.fixed_obs_stats.std)
         ret.is_eval = is_eval
         ret.timesteps = timesteps
         ret.encoded_noise = encoded_perturbation
         ret.reward = rew
-        ret.novelty = self.strategy_handler.compute_novelty(self.policy)
+        ret.novelty = self.strategy_handler.compute_novelty(self.policy, obs_stats=(self.fixed_obs_stats.mean,
+                                                                                    self.fixed_obs_stats.std))
         ret.entropy = ent
         ret.epoch = self.epoch
         ret.obs_stats_update = self.agent.obs_stats.serialize()

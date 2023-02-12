@@ -3,14 +3,24 @@ from utils.math_helpers import WelfordRunningStat
 
 
 class Agent(object):
-    def __init__(self, policy, env, random_seed, normalize_obs=False, obs_stats_update_chance=0.01):
+    def __init__(self, policy, env, random_seed,
+                 normalize_obs=False,
+                 obs_stats_update_chance=0.01,
+                 episode_timestep_limit=-1,
+                 observation_clip_range=10):
+
         self.policy = policy
         self.env = env
         self.rng = np.random.RandomState(random_seed)
         self.last_obs = env.reset()
         self.cumulative_timesteps = 0
-        self.ts_limit = 10000
 
+        if episode_timestep_limit == -1:
+            self.ts_limit = np.inf
+        else:
+            self.ts_limit = episode_timestep_limit
+
+        self.obs_clip = observation_clip_range
         self.obs_stats = WelfordRunningStat(policy.input_shape)
         self.normalize_obs = normalize_obs
         self.obs_stats_update_chance = obs_stats_update_chance
@@ -21,6 +31,7 @@ class Agent(object):
         policy = self.policy
         env = self.env
         obs = self.last_obs
+        obs_clip = self.obs_clip
 
         # Agents produce updates for obs statistics. Learners accumulate these updates in a fixed obs stats object such
         # that every worker connected to a learner should be guaranteed to use the same observation statistics.
@@ -31,14 +42,14 @@ class Agent(object):
         steps = 0
         states = []
         policy.reset()
-
-        for i in range(self.ts_limit):
+        ts_limit = self.ts_limit
+        while steps < ts_limit:
             states.append(obs)
             if self.normalize_obs:
                 if self.rng.uniform(0, 1) < self.obs_stats_update_chance:
                     self.obs_stats.increment(obs, 1)
                 obs = np.subtract(obs, mean) / std
-                obs = np.clip(obs, -10, 10)
+                obs = np.clip(obs, -obs_clip, obs_clip)
 
             action = policy.get_action(obs, deterministic=eval_run)
             new_obs, rew, done, _ = env.step(action)
@@ -60,7 +71,7 @@ class Agent(object):
         states = np.asarray(states)
 
         if self.normalize_obs:
-            states = np.clip((states - mean) / std, -10, 10)
+            states = np.clip((states - mean) / std, -obs_clip, obs_clip)
 
         entropy = policy.get_entropy(states)
         policy.reset()

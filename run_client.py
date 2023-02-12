@@ -25,6 +25,7 @@ class ClientRunner(object):
         self.policy = None
         self.env = None
         self.rng = None
+        self.worker_id = ""
 
         self.client = RPCClient()
 
@@ -39,8 +40,9 @@ class ClientRunner(object):
 
         policy.deserialize(client.current_state.policy_params)
         strategy_handler = self.strategy_handler
-        strategy_handler.add_policy(policy)
         worker.update(client.current_state)
+        strategy_handler.add_policy(policy, obs_stats=(worker.fixed_obs_stats.mean, worker.fixed_obs_stats.std))
+
         running = True
 
         while running:
@@ -78,19 +80,20 @@ class ClientRunner(object):
                     sys.exit(-1)
 
                 worker.update(client.current_state)
-            # Don't use elif here. If the connection falls and is re-established, new_experiment_flag may be set.
+            # Don't use elif here. If the connection fails and is then re-established, new_experiment_flag may be set.
             if status == RPCClient.NEW_EXPERIMENT_FLAG:
                 print("CLIENT GOT NEW EXPERIMENT")
                 cfg = client.current_state.cfg
                 self.configure(cfg["env_id"], cfg["normalize_obs"], cfg["obs_stats_update_chance"], cfg["noise_std"],
-                               cfg["random_seed"], cfg["eval_prob"], cfg["max_strategy_history_size"])
+                               cfg["random_seed"], cfg["eval_prob"], cfg["max_strategy_history_size"],
+                               cfg["observation_clip_range"], cfg["episode_timestep_limit"], cfg["collect_zeta"])
 
                 strategy_handler = self.strategy_handler
                 policy = self.policy
                 worker = self.worker
 
                 policy.deserialize(client.current_state.policy_params)
-                strategy_handler.add_policy(policy)
+                strategy_handler.add_policy(policy, obs_stats=(worker.fixed_obs_stats.mean, worker.fixed_obs_stats.std))
                 worker.update(client.current_state)
 
         client.disconnect()
@@ -105,12 +108,15 @@ class ClientRunner(object):
         state = self.client.current_state
         cfg = state.cfg
         self.configure(cfg["env_id"], cfg["normalize_obs"], cfg["obs_stats_update_chance"], cfg["noise_std"],
-                       cfg["random_seed"], cfg["eval_prob"], cfg["max_strategy_history_size"])
+                               cfg["random_seed"], cfg["eval_prob"], cfg["max_strategy_history_size"],
+                               cfg["observation_clip_range"], cfg["episode_timestep_limit"], cfg["collect_zeta"])
 
     def configure(self, env_id="Walker2d-v2", normalize_obs=True, obs_stats_update_chance=0.01,
-                  noise_std=0.02, random_seed=124, eval_prob=0.05, max_strategy_history_size=200):
+                  noise_std=0.02, random_seed=124, eval_prob=0.05, max_strategy_history_size=200,
+                  observation_clip_range=10, episode_timestep_limit=-1, collect_zeta=False):
 
         print("Env: {}\nSeed: {}\nNoise std: {}\nNormalize obs: {}".format(env_id, random_seed, noise_std, normalize_obs))
+        self.worker_id = "{}".format(random_seed)
         random_seed = int(random_seed)
         self.rng = np.random.RandomState(random_seed)
 
@@ -125,11 +131,15 @@ class ClientRunner(object):
         self.strategy_handler = StrategyHandler(self.policy, strategy_distance_fn,
                                                 max_history_size=max_strategy_history_size)
 
-        self.worker = Worker(self.policy, Agent(self.policy, self.env, random_seed, normalize_obs=normalize_obs,
-                                                obs_stats_update_chance=obs_stats_update_chance),
-                             noise_source, self.strategy_handler, sigma=noise_std, random_seed=random_seed,
-                             eval_prob=eval_prob)
+        agent = Agent(self.policy, self.env, random_seed,
+                      normalize_obs=normalize_obs,
+                      obs_stats_update_chance=obs_stats_update_chance,
+                      observation_clip_range=observation_clip_range,
+                      episode_timestep_limit=episode_timestep_limit)
 
+        self.worker = Worker(self.policy, agent, noise_source, self.strategy_handler, self.worker_id,
+                             sigma=noise_std, random_seed=random_seed, collect_zeta=collect_zeta,
+                             eval_prob=eval_prob)
 
 if __name__ == "__main__":
     runner = ClientRunner()

@@ -39,6 +39,7 @@ message Return
   repeated float eval_states = 8;
   repeated int32 eval_states_shape = 9;
   repeated float obs_stats_update = 10;
+  string worker_id = 11;
 }
 
 message ReturnArray

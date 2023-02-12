@@ -1,60 +1,27 @@
 from custom_envs import simple_trap_env
 import procgen
-from run_sequential import SequentialRunner
+# from run_sequential import SequentialRunner
 from dsgd import DSGD
 import torch
 
+def compile_protobuf():
+    import os
+    os.system("python -m grpc_tools.protoc -I networking/rpc_misc/proto --python_out=networking/rpc_misc "
+              "--grpc_python_out=networking/rpc_misc networking/rpc_misc/proto/client_server_interface.proto")
+
+    modified_file = ""
+    file_path = os.path.join("networking","rpc_misc","client_server_interface_pb2_grpc.py")
+    with open(file_path, 'r') as f:
+        for line in f:
+            if "import client_server_interface_pb2" in line:
+                modified_file = "{}{}".format(modified_file, "from . import client_server_interface_pb2 as "
+                                                             "client__server__interface__pb2")
+            else:
+                modified_file = "{}{}".format(modified_file, line)
+
+    with open(file_path, 'w') as f:
+        f.write(modified_file)
+
 
 if __name__ == "__main__":
-    cfg = {
-        "seed": 124,
-        "grad_opt": DSGD,
-        "env_id": "Walker2d-v2",
-        "wandb": {"log": True,
-                  "run_name": "rng_test"},
-
-        "optimizer": {"learning_rate": 0.01,
-                      "noise_std": 0.02,
-                      "batch_size": 40,
-                      "ent_coef": 0,
-                      "max_delayed_return": 10,
-                      "vbn_buffer_size": 0,
-                      "normalize_obs": True,
-                      "eval_prob": 0.05},
-
-        "strategy": {"zeta_size": 2,
-                     "max_history_size": 2},
-
-        "omega": {"max_value": 1,
-                  "min_value": 0,
-                  "default_value": 0,
-                  "steps_to_min": 25,
-                  "steps_to_max": 75,
-                  "improvement_threshold": 1.035,
-                  "window_size": 20}}
-
-    runner = SequentialRunner(log_to_wandb=True,
-                              opt_fn=DSGD,
-                              env_id="Walker2d-v2",
-                              wandb_run_name="rng_test",
-                              normalize_obs=True,
-                              learning_rate=0.01,
-                              noise_std=0.02,
-                              batch_size=40,
-                              ent_coef=0.,
-                              random_seed=124,
-                              max_delayed_return=0,
-                              vbn_buffer_size=1000,
-                              zeta_size=2,
-                              max_strategy_history_size=2,
-                              eval_prob=0.05,
-                              omega_improvement_threshold=1.035,
-                              omega_reward_history_size=20,
-                              omega_default_value=0.0,
-                              omega_min_value=0.0,
-                              omega_max_value=1,
-                              omega_steps_to_min=25,
-                              omega_steps_to_max=75,
-                              )
-
-    runner.train(n_epochs=1000000)
+    compile_protobuf()

@@ -68,7 +68,7 @@ class ServerInterface(object):
         n_collected = 0
         rets = []
 
-        # passing bs=None will pull out every waiting return instead of a specific number
+        # passing batch_size=None will pull out every waiting return instead of a specific number
         if batch_size is None:
             batch_size = max(len(self.waiting_returns), 1)
 

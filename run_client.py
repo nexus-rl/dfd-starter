@@ -16,7 +16,7 @@ torch.set_num_threads(1)
 
 
 class ClientRunner(object):
-    def __init__(self, eval_only=False, render=False):
+    def __init__(self, eval_only=False, render=False, server_port=None, server_address="localhost"):
         self.policy_reward = 0
         self.policy_entropy = 0
         self.policy_novelty = 0
@@ -27,13 +27,15 @@ class ClientRunner(object):
         self.rng = None
         self.eval_only = eval_only
         self.render = render
+        self.server_port = server_port
+        self.server_address = server_address
 
         self.client = RPCClient()
 
     @torch.no_grad()
     def run(self):
         client = self.client
-        client.connect(address="localhost", port=1025)
+        client.connect(address=self.server_address, port=self.server_port)
         self.receive_config()
 
         policy = self.policy
@@ -138,6 +140,9 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--eval_only", action="store_true")
     parser.add_argument("--render", action="store_true")
+    parser.add_argument("--server_port", type=int, default=None)
+    parser.add_argument("--server_address", type=str, default="localhost")
+
     args = parser.parse_args()
     eval_only = args.eval_only
     render = args.render
@@ -146,5 +151,5 @@ if __name__ == "__main__":
     if render:
         print("Rendering enabled")
 
-    runner = ClientRunner(eval_only=eval_only, render=render)
+    runner = ClientRunner(eval_only=eval_only, render=render, server_port=args.server_port, server_address=args.server_address)
     runner.run()

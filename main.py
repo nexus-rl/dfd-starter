@@ -1,5 +1,4 @@
 from custom_envs import simple_trap_env
-import procgen
 from run_sequential import SequentialRunner
 from dsgd import DSGD
 import torch

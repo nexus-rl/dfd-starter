@@ -71,7 +71,8 @@ class Environment(gym.Env):
         last_distance = self._subtract_vec3(self.last_ball_pos, self.last_agent_pos)
         curr_distance = self._subtract_vec3(ball_pos, agent_pos)
 
-        return np.linalg.norm(curr_distance - last_distance)
+        # normalize by max combined car & ball speed
+        return np.linalg.norm(curr_distance - last_distance) / (6000.0 + 2300.0)
 
     def _vel_ball_goal(self):
         ball_pos = self._get_ball().get_pos()
@@ -79,7 +80,8 @@ class Environment(gym.Env):
         last_distance = self._subtract_vec3(self.goal_pos, self.last_ball_pos)
         curr_distance = self._subtract_vec3(self.goal_pos, ball_pos)
 
-        return np.linalg.norm(curr_distance - last_distance)
+        # normalize by max ball speed
+        return np.linalg.norm(curr_distance - last_distance) / 6000.0
 
     def _vel_car_goal(self):
         agent_pos = self._get_agent().get_pos()
@@ -87,7 +89,8 @@ class Environment(gym.Env):
         last_distance = self._subtract_vec3(self.goal_pos, self.last_agent_pos)
         curr_distance = self._subtract_vec3(self.goal_pos, agent_pos)
 
-        return np.linalg.norm(curr_distance - last_distance)
+        # normalize by max car speed
+        return np.linalg.norm(curr_distance - last_distance) / 2300.0
 
     def _distance_ball_from_target(self, target: Vec3):
         ball = self._get_ball()
@@ -98,7 +101,8 @@ class Environment(gym.Env):
         return np.linalg.norm(self._subtract_vec3(agent.get_pos(), target))
 
     def _reward_fn(self):
-        return self._vel_car_goal()
+        goal_reward = 1 if self._distance_ball_from_target(self.goal_pos) < GOAL_THRESHOLD else 0
+        return self._vel_car_goal() * 0.1 + goal_reward * 0.9
 
     def reset(self, seed=None, options=None):
         if seed is not None:

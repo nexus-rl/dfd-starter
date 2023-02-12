@@ -1,11 +1,6 @@
-from custom_envs import simple_trap_env
-import procgen
-# from run_sequential import SequentialRunner
-from dsgd import DSGD
-import torch
+import os
 
 def compile_protobuf():
-    import os
     os.system("python -m grpc_tools.protoc -I networking/rpc_misc/proto --python_out=networking/rpc_misc "
               "--grpc_python_out=networking/rpc_misc networking/rpc_misc/proto/client_server_interface.proto")
 

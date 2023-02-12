@@ -5,7 +5,6 @@ from strategy import StrategyHandler
 from custom_envs import simple_trap_env, rocketsim
 from policies import ImpalaPolicy, DiscretePolicy, AtariPolicy, MujocoPolicy
 import gym
-import procgen
 from utils import math_helpers, init_helper
 from dsgd import DSGD
 import torch
@@ -15,8 +14,6 @@ import wandb
 import time
 import uuid
 import datetime
-
-start_timestamp = datetime.datetime.utcnow().isoformat()
 
 
 class ServerRunner(object):
@@ -50,7 +47,9 @@ class ServerRunner(object):
                  existing_wandb_run=None,
                  wandb_project="dfd-starter",
                  wandb_group=None,
-                 wandb_run_name="dfd_test_run"):
+                 wandb_run_name="dfd_test_run",
+                 bind_port=None,
+                 bind_address="localhost"):
 
         self.wandb_run = None
 
@@ -116,6 +115,9 @@ class ServerRunner(object):
 
         self.worker = GRPCWorker(self.current_state)
 
+        self.bind_address = bind_address
+        self.bind_port = bind_port
+
     @torch.no_grad()
     def train(self):
         cumulative_timesteps = 0
@@ -133,7 +135,7 @@ class ServerRunner(object):
         strategy_handler.add_policy(policy)
         worker.update(current_state)
 
-        worker.start(address="localhost", port=1025)
+        worker.start(address=self.bind_address, port=self.bind_port)
         t1 = time.perf_counter()
 
         n_waiting_last = 0
@@ -314,7 +316,7 @@ def train(optimizer, env_id=None, normalize_obs=True, obs_stats_update_chance=0.
           omega_default_value=1, omega_improvement_threshold=1.035, omega_reward_history_size=20,
           omega_min_value=0, omega_max_value=1, omega_steps_to_min=25, omega_steps_to_max=75,
           log_to_wandb=True, existing_wandb_run=None, wandb_project=None, wandb_group=None,
-          wandb_run_name=None):
+          wandb_run_name=None, bind_port=None, bind_address="localhost"):
 
     KNOWN_OPTIMIZERS = {
         "DSGD": lambda: DSGD,
@@ -376,7 +378,9 @@ def train(optimizer, env_id=None, normalize_obs=True, obs_stats_update_chance=0.
                           existing_wandb_run=existing_wandb_run,
                           wandb_project=wandb_project,
                           wandb_group=wandb_group,
-                          wandb_run_name=wandb_run_name
+                          wandb_run_name=wandb_run_name,
+                          bind_port=bind_port,
+                          bind_address=bind_address
                           )
     runner.train()
 
@@ -409,6 +413,8 @@ if __name__ == "__main__":
     parser.add_argument("--wandb_project", type=str, default=None)
     parser.add_argument("--wandb_group", type=str, default=None)
     parser.add_argument("--wandb_run_name", type=str, default=None)
+    parser.add_argument("--bind_port", type=int, default=None)
+    parser.add_argument("--bind_address", type=str, default="localhost")
     args = parser.parse_args()
     print('Args', args)
     if args.operation == "train":
@@ -437,7 +443,9 @@ if __name__ == "__main__":
             log_to_wandb=args.log_to_wandb,
             wandb_project=args.wandb_project,
             wandb_group=args.wandb_group,
-            wandb_run_name=args.wandb_run_name
+            wandb_run_name=args.wandb_run_name,
+            bind_port=args.bind_port,
+            bind_address=args.bind_address
         )
     elif args.operation == "sweep":
         raise NotImplementedError("Sweep not implemented yet, someone should do that.")

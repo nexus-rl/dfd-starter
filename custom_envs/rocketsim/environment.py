@@ -7,7 +7,6 @@ import os
 import gym
 import os
 
-GOAL = Vec3(0, 3000, 0)
 GOAL_THRESHOLD = 100
 
 class Environment(gym.Env):
@@ -18,8 +17,9 @@ class Environment(gym.Env):
         self.agent_id = None
         self.last_action = None
         self.timeout_ticks = None
+        self.goal_pos = None
         self.action_space = gym.spaces.Discrete(4)
-        self.observation_space = gym.spaces.Box(-1, 1, (17,))
+        self.observation_space = gym.spaces.Box(-1, 1, (14,))
         if render_mode == "human":
             pygame.init()
             self.screen = pygame.display.set_mode((1000, 800))
@@ -47,7 +47,7 @@ class Environment(gym.Env):
         self.arena.step(8)
 
         reward = self._reward_fn()
-        done = self._distance_car_from_target(GOAL) < GOAL_THRESHOLD
+        done = self._distance_car_from_target(self.goal_pos) < GOAL_THRESHOLD
         self.timeout_ticks -= 1
         timeout = self.timeout_ticks <= 0
         self.last_action = action
@@ -74,7 +74,7 @@ class Environment(gym.Env):
     def _reward_fn(self):
         # car_ball_dist = self._distance_car_from_ball() / 10000
         # ball_target_dist = self._distance_ball_from_target(GOAL) / 10000
-        car_target_dist = self._distance_car_from_target(GOAL) / 10000
+        car_target_dist = self._distance_car_from_target(self.goal_pos) / 10000
         return -car_target_dist #- ball_target_dist
 
     def reset(self, seed=None, options=None):
@@ -89,13 +89,18 @@ class Environment(gym.Env):
         self.last_action = None
 
         ball = self._get_ball()
-        ball.pos = Vec3(0, 0, 93)
+        ball.pos = Vec3(0, 0, 5000)
+        # ball.vel = Vec3(0, 0, 0.5)
         self.arena.ball = ball
 
         agent = self._get_agent()
-        agent.pos = Vec3(1000, 1000, 17)
+        # x = +- 3000
+        # y = +- 3000
+        agent.pos = Vec3(self.rng.uniform(-3000, 3000), self.rng.uniform(-3000, 3000), 17)
         agent.angles = Angle(0, 0, 0)
         agent.boost = 100
+
+        self.goal_pos = Vec3(self.rng.uniform(-3000, 3000), self.rng.uniform(-3000, 3000), 17)
         self.arena.set_car(self.agent_id, agent)
 
         return self._form_obs(), {}
@@ -133,12 +138,12 @@ class Environment(gym.Env):
         ACTION_SCALE = 1/3
 
         agent = self._get_agent()
-        ball = self._get_ball()
+        # ball = self._get_ball()
         agent_pos = agent.get_pos()
         agent_vel = agent.get_vel()
         agent_angles = agent.get_angles()
-        ball_pos = ball.get_pos()
-        ball_vel = ball.get_vel()
+        # ball_pos = ball.get_pos()
+        # ball_vel = ball.get_vel()
 
         obs = [
             agent_pos.x * POS_SCALE,
@@ -151,12 +156,9 @@ class Environment(gym.Env):
             agent_vel.x * VEL_SCALE,
             agent_vel.y * VEL_SCALE,
             agent_vel.z * VEL_SCALE,
-            ball_pos.x * POS_SCALE,
-            ball_pos.y * POS_SCALE,
-            ball_pos.z * POS_SCALE,
-            ball_vel.x * VEL_SCALE,
-            ball_vel.y * VEL_SCALE,
-            ball_vel.z * VEL_SCALE,
+            self.goal_pos.x * POS_SCALE,
+            self.goal_pos.y * POS_SCALE,
+            self.goal_pos.z * POS_SCALE,
             -1 if self.last_action is None else (self.last_action * ACTION_SCALE)
         ]
 
@@ -175,6 +177,9 @@ class Environment(gym.Env):
         # Get the agent and ball
         agent_pos = self._get_agent().get_pos()
         ball_pos = self._get_ball().get_pos()
+
+        # Get obs so we can draw them
+        obs = self._form_obs()
 
         # Draw the agent
         pygame.draw.circle(display, (255, 0, 0), (int(400 + agent_pos.x / 10), int(300 + agent_pos.y/10)), 10)
@@ -202,10 +207,32 @@ class Environment(gym.Env):
 
 
         # Draw the goal
-        pygame.draw.circle(display, (0, 255, 0), (int(400 + GOAL.x / 10), int(300 + GOAL.y / 10)), 10)
+        pygame.draw.circle(display, (0, 255, 0), (int(400 + self.goal_pos.x / 10), int(300 + self.goal_pos.y / 10)), 10)
         # Draw text above the goal with "Goal: x,y,z"
-        text = font.render(f"Goal: {GOAL.x:.2f}, {GOAL.y:.2f}, {GOAL.z:.2f}", True, (0, 0, 0))
-        display.blit(text, (-100 + int(400 + GOAL.x / 10), -25 + int(300 + GOAL.y / 10)))
+        text = font.render(f"Goal: {self.goal_pos.x:.2f}, {self.goal_pos.y:.2f}, {self.goal_pos.z:.2f}", True, (0, 0, 0))
+        display.blit(text, (-100 + int(400 + self.goal_pos.x / 10), -25 + int(300 + self.goal_pos.y / 10)))
+
+        obs_names = [
+            "Agent x position",
+            "Agent y position",
+            "Agent z position",
+            "Agent pitch",
+            "Agent yaw",
+            "Agent roll",
+            "Agent boost",
+            "Agent x velocity",
+            "Agent y velocity",
+            "Agent z velocity",
+            "Goal x position",
+            "Goal y position",
+            "Goal z position",
+        ]
+
+        # Enumerate zip of obs and obs_names and print them out
+        for i, (obs_name, obs_val) in enumerate(zip(obs_names, obs)):
+            text = font.render(f"{obs_name}: {obs_val:.2f}", True, (0, 0, 0))
+            display.blit(text, (10, 10 + i * 20))
+
 
 
         pygame.display.update()

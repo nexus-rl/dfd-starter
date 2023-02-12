@@ -11,6 +11,9 @@ from utils import math_helpers, init_helper
 import torch
 import numpy as np
 import random
+import os
+from multiprocessing import Process
+from functools import partial
 
 torch.set_num_threads(1)
 
@@ -134,22 +137,50 @@ class ClientRunner(object):
                              noise_source, self.strategy_handler, sigma=noise_std, random_seed=random_seed,
                              eval_prob=eval_prob, eval_only=self.eval_only)
 
+def run(eval_only, render=False, server_port=None, server_address="localhost"):
+    runner = ClientRunner(eval_only=eval_only, render=render, server_port=server_port, server_address=server_address)
+    runner.run()
 
 if __name__ == "__main__":
     import argparse
     parser = argparse.ArgumentParser()
-    parser.add_argument("--eval_only", action="store_true")
-    parser.add_argument("--render", action="store_true")
-    parser.add_argument("--server_port", type=int, default=None)
-    parser.add_argument("--server_address", type=str, default="localhost")
+    parser.add_argument("--eval_only", action="store_true", help="Run in eval only mode.")
+    parser.add_argument("--render", action="store_true", help="Render the environment.")
+    parser.add_argument("--server_port", type=int, default=None, help="Port of the server. (default: %(default)s)")
+    parser.add_argument("--server_address", type=str, default="localhost", help="Address of the server. (default: %(default)s)")
+    parser.add_argument("-j", "--num_procs", type=int, default=1, help="Number of processes to use. (default: %(default)s)")
 
     args = parser.parse_args()
     eval_only = args.eval_only
     render = args.render
+
+    if args.num_procs != 1 and render:
+        raise ValueError("Cannot render in multi-process mode.")
+    
     if eval_only:
         print("Running in eval only mode")
     if render:
         print("Rendering enabled")
 
-    runner = ClientRunner(eval_only=eval_only, render=render, server_port=args.server_port, server_address=args.server_address)
-    runner.run()
+    if args.num_procs > 1:
+        procs = [
+            Process(
+                target=run,
+                args=(
+                    eval_only,
+                    render,
+                    args.server_port,
+                    args.server_address
+            )
+            ) for _ in range(args.num_procs)
+        ]
+
+        for p in procs:
+            p.start()
+        
+        for p in procs:
+            p.join()
+
+    else:
+        run(eval_only, render, args.server_port, args.server_address)
+    

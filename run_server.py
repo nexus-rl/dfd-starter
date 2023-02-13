@@ -406,7 +406,7 @@ if __name__ == "__main__":
 
     exp_group = parser.add_argument_group("Exploration")
     exp_group.add_argument("--explore", action=argparse.BooleanOptionalAction, default=False, help="Enable advanced exploration (default: %(default)s)")
-    exp_group.add_argument("--collect_zeta", type=int, default=100, help="Collect zeta data for the advanced exploration algorithm (default: %(default)s)")
+    exp_group.add_argument("--collect_zeta",  action="store_true", default=False, help="Collect zeta data for the advanced exploration algorithm (default: %(default)s)")
     exp_group.add_argument("--zeta_size", type=int, default=100, help="Size of the zeta buffer (default: %(default)s)")
     exp_group.add_argument("--max_strategy_history_size", type=int, default=0, help="Maximum size of the strategy history (default: %(default)s)")
 
@@ -422,7 +422,7 @@ if __name__ == "__main__":
     training_group.add_argument("--timestep_limit", type=int, default=None, help="Train until this many timesteps (default: %(default)s)")
     training_group.add_argument("--seed", type=int, default=124, dest="random_seed", help="Random seed (default: %(default)s)")
     training_group.add_argument("--learning_rate", type=float, default=0.01, help="Learning rate (default: %(default)s)")
-    training_group.add_argument("--noise_std", type=float, default=0.1, help="Noise standard deviation (default: %(default)s)")
+    training_group.add_argument("--noise_std", type=float, default=0.02, help="Noise standard deviation (default: %(default)s)")
     training_group.add_argument("--batch_size", type=int, default=32, help="Batch size (default: 32)")
     training_group.add_argument("--optimizer", type=str, default="DSGD", choices=["DSGD", "Adam", "SGD"], help="Optimizer (default: %(default)s)")
     training_group.add_argument("--max_delayed_return", type=int, default=10, help="Maximum number of steps to delay the return (default: %(default)s)")

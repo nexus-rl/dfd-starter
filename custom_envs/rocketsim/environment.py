@@ -1,5 +1,6 @@
 from rocketsim import Angle, Vec3
 from rocketsim.sim import Arena, CarConfig, GameMode, Team, Car, CarControls, Ball
+from actions import actions
 
 import pygame
 import numpy as np
@@ -20,7 +21,7 @@ class Environment(gym.Env):
         self.goal_pos = None
         self.last_agent_pos = None
         self.last_ball_pos = None
-        self.action_space = gym.spaces.Discrete(4)
+        self.action_space = gym.spaces.Discrete(len(actions))
 
         obs_shape = np.shape(self.reset()[0])
         self.observation_space = gym.spaces.Box(-1, 1, obs_shape)
@@ -31,23 +32,25 @@ class Environment(gym.Env):
         else:
             self.screen = None
 
+    def _make_action(self, action):
+        action = actions[action]
+        throttle, steer, yaw, pitch, roll, jump, boost, handbrake = action
+        return CarControls(
+            throttle=throttle,
+            steer=steer,
+            yaw=yaw,
+            pitch=pitch,
+            roll=roll,
+            jump=jump,
+            boost=boost,
+            handbrake=handbrake,
+        )
+
     def step(self, action):
         if self.arena is None:
             raise Exception("Arena not initialized, you must call reset() before step()")
 
-        # Controls are turn left, turn right, accelerate, and brake
-        controls = CarControls(throttle=0)
-        if action == 0:
-            controls.throttle = 0.5
-            controls.steer = -1
-        elif action == 1:
-            controls.throttle = 0.5
-            controls.steer = 1
-        elif action == 2:
-            controls.throttle = 1
-        elif action == 3:
-            controls.throttle = -1
-
+        controls = self._make_action(int(action))
         self.arena.set_car_controls(self.agent_id, controls)
         self.arena.step(8)
 
@@ -59,13 +62,20 @@ class Environment(gym.Env):
         self.last_action = action
         if self.screen:
             self.render()
-        
-        obs = self._form_obs()
 
+        if self._is_agent_upside_down():
+            done = True
+            reward = -10
+
+        obs = self._form_obs()
         self.last_agent_pos = self._get_agent().get_pos()
         self.last_ball_pos = self._get_ball().get_pos()
 
         return obs, reward, done, timeout, {}
+
+    def _is_agent_upside_down(self):
+        agent_roll = self._get_agent().get_angles().roll
+        return agent_roll > 0.8 or agent_roll < -0.8
 
     def _subtract_vec3(self, a: Vec3, b: Vec3):
         return np.array([a.x - b.x, a.y - b.y, a.z - b.z])

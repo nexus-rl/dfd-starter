@@ -276,6 +276,8 @@ class Environment(gym.Env):
             "Goal x position",
             "Goal y position",
             "Goal z position",
+            "Last action",
+            "Car->goal velocity"
         ]
 
         # Enumerate zip of obs and obs_names and print them out

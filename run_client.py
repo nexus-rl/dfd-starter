@@ -55,7 +55,7 @@ class ClientRunner(object):
         while running:
             returns = []
             t1 = time.time()
-            while time.time() - t1 < 0.01:
+            while time.time() - t1 < 1:
                 returns += worker.collect_returns()
 
             # print("Submitted {} returns.".format(len(returns)))

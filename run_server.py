@@ -18,8 +18,11 @@ import datetime
 
 class ServerRunner(object):
     def __init__(self,
+                 env,
+                 env_id,
+                 policy,
+                 strategy_distance_fn,
                  opt_fn=DSGD,
-                 env_id="LunarLanderContinuous-v2",
                  normalize_obs=True,
                  obs_stats_update_chance=0.01,
                  timestep_limit=None,
@@ -43,23 +46,15 @@ class ServerRunner(object):
                  omega_max_value=1,
                  omega_steps_to_min=25,
                  omega_steps_to_max=75,
-                 log_to_wandb=True,
-                 existing_wandb_run=None,
-                 wandb_project="dfd-starter",
-                 wandb_group=None,
-                 wandb_run_name="dfd_test_run",
+                 wandb_run=None,
                  bind_port=None,
                  bind_address="localhost"):
+        
+        self.env = env
+        self.policy = policy
+        self.strategy_distance_fn = strategy_distance_fn
 
-        self.wandb_run = None
-
-        if existing_wandb_run is not None:
-            self.wandb_run = existing_wandb_run
-        elif log_to_wandb:
-            self.wandb_run = wandb.init(project=wandb_project,
-                                        group=wandb_group if wandb_group is not None else env_id,
-                                        name=wandb_run_name if wandb_run_name is not None else "Seed {}".format(random_seed),
-                                        config=None, reinit=True)
+        self.wandb_run = wandb_run
 
         self.rng = np.random.RandomState(random_seed)
         self.omega = AdaptiveOmega(default_value=omega_default_value,
@@ -77,7 +72,6 @@ class ServerRunner(object):
         np.random.seed(random_seed)
 
         self.timestep_limit = timestep_limit
-        self.env, self.policy, strategy_distance_fn = init_helper.get_init_data(env_id, random_seed)
 
         opt = opt_fn(self.policy.parameters(), lr=learning_rate)
         noise_source = RNGNoiseSource(self.policy.num_params, random_seed=random_seed)
@@ -90,13 +84,14 @@ class ServerRunner(object):
                                          ent_coef=ent_coef,
                                          max_delayed_return=max_delayed_return)
 
-        self.normalize_obs = normalize_obs
         self.policy_reward = None
         self.policy_entropy = None
         self.policy_novelty = None
         self.zeta = []
         self.vbn_buffer = None
+        self.normalize_obs = normalize_obs
         self.global_obs_stats = math_helpers.WelfordRunningStat(self.policy.input_shape)
+
         self._sample_initial_buffers(vbn_buffer_size)
 
         self.current_state = FDState()
@@ -318,13 +313,7 @@ def sweep():
     wandb.agent(sweep_id, function=sweep_fn, count=180, project="mujoco-sweep-longer")
 
 
-def train(optimizer, env_id=None, normalize_obs=True, obs_stats_update_chance=0.01, learning_rate=0.01,
-          noise_std=0.02, batch_size=20, ent_coef=0, random_seed=124, max_delayed_return=10,
-          vbn_buffer_size=0, zeta_size=2, max_strategy_history_size=2, eval_prob=0.05,
-          omega_default_value=1, omega_improvement_threshold=1.035, omega_reward_history_size=20,
-          omega_min_value=0, omega_max_value=1, omega_steps_to_min=25, omega_steps_to_max=75,
-          log_to_wandb=True, existing_wandb_run=None, wandb_project=None, wandb_group=None,
-          wandb_run_name=None, bind_port=None, bind_address="localhost", timestep_limit=None):
+def train(args):
 
     KNOWN_OPTIMIZERS = {
         "DSGD": lambda: DSGD,
@@ -332,132 +321,141 @@ def train(optimizer, env_id=None, normalize_obs=True, obs_stats_update_chance=0.
         "SGD": lambda: torch.optim.SGD,
     }
 
-    if optimizer not in KNOWN_OPTIMIZERS:
-        raise ValueError(f"Unknown optimizer {optimizer}, must be one of {KNOWN_OPTIMIZERS.keys()}")
-    opt_fn = KNOWN_OPTIMIZERS[optimizer]()
+    if args.optimizer not in KNOWN_OPTIMIZERS:
+        raise ValueError(f"Unknown optimizer {args.optimizer}, must be one of {KNOWN_OPTIMIZERS.keys()}")
+    opt_fn = KNOWN_OPTIMIZERS[args.optimizer]()
 
-    if env_id is None:
-        env_id = "LunarLanderContinuous-v2"
+    if args.env_id not in gym.envs.registry:
+        raise ValueError("Unknown env: {}, make sure it is registered to Gym.".format(args.env_id))
 
-    if env_id not in gym.envs.registry:
-        raise ValueError("Unknown env: {}, make sure it is registered to Gym.".format(env_id))
-
-    if log_to_wandb and existing_wandb_run is None:
+    if args.log_to_wandb and args.existing_wandb_run is None:
         # Expect a project name to be passed in
-        if wandb_project is None:
+        if args.wandb_project is None:
             raise ValueError("Must pass in a wandb project name (--wandb_project) if not resuming a run")
         # Defaults for group and run name if not passed in
-        if wandb_group is None:
-            wandb_group = env_id
-        if wandb_run_name is None:
-            wandb_run_name = f"seed-{random_seed}-start-{start_timestamp}"
+        if args.wandb_group is None:
+            args.wandb_group = args.env_id
+        if args.wandb_run_name is None:
+            start_timestamp = datetime.datetime.utcnow().isoformat(timespec="seconds")
+            args.wandb_run_name = f"seed-{args.random_seed}-start-{start_timestamp}"
 
-    if not log_to_wandb:
+    wandb_run = None
+
+    if args.log_to_wandb:
+        wandb_run = wandb.init(project=args.wandb_project if args.existing_wandb_run is None else None,
+                               group=args.wandb_group if args.existing_wandb_run is None else None,
+                               name=args.wandb_run_name if args.existing_wandb_run is None else None,
+                               id=args.existing_wandb_run,
+                               config=vars(args),
+                               reinit=args.existing_wandb_run is not None)
+
+    if not args.log_to_wandb:
         print("INFO: Not logging to wandb.")
 
-    if vbn_buffer_size == 0 or normalize_obs:
-        # TODO: Consider actually checking the environment's action space.
-        # I didn't do that because I was concerned that some environments might need particular instantiation and didn't want to do that here.
-        print("INFO: If you're using a discrete action space, you should set vbn_buffer_size > 0 and normalize_obs=False. Consider vbn=1000.")
-        # TODO: Move to get_init_data
+    env, policy, strategy_distance_fn, action_space = init_helper.get_init_data(args.env_id, args.random_seed)
 
-    runner = ServerRunner(opt_fn=opt_fn,
-                          env_id=env_id,
-                          normalize_obs=normalize_obs,
-                          obs_stats_update_chance=obs_stats_update_chance,
-                          learning_rate=learning_rate,
-                          noise_std=noise_std,
-                          batch_size=batch_size,
-                          ent_coef=ent_coef,
-                          random_seed=random_seed,
-                          max_delayed_return=max_delayed_return,
-                          vbn_buffer_size=vbn_buffer_size,
-                          zeta_size=zeta_size,
-                          max_strategy_history_size=max_strategy_history_size,
-                          eval_prob=eval_prob,
-                          omega_default_value=omega_default_value,
-                          omega_improvement_threshold=omega_improvement_threshold,
-                          omega_reward_history_size=omega_reward_history_size,
-                          omega_min_value=omega_min_value,
-                          omega_max_value=omega_max_value,
-                          omega_steps_to_min=omega_steps_to_min,
-                          omega_steps_to_max=omega_steps_to_max,
-                          log_to_wandb=log_to_wandb,
-                          existing_wandb_run=existing_wandb_run,
-                          wandb_project=wandb_project,
-                          wandb_group=wandb_group,
-                          wandb_run_name=wandb_run_name,
-                          bind_port=bind_port,
-                          bind_address=bind_address,
-                          timestep_limit=timestep_limit
+    if type(action_space) == gym.spaces.Discrete:
+        args.normalize_obs = False
+    else:
+        args.vbn_buffer_size = 0
+
+
+    runner = ServerRunner(env=env,
+                          env_id=args.env_id,
+                          policy=policy,
+                          strategy_distance_fn=strategy_distance_fn,
+                          opt_fn=opt_fn,
+                          normalize_obs=args.normalize_obs,
+                          obs_stats_update_chance=args.obs_stats_update_chance,
+                          learning_rate=args.learning_rate,
+                          noise_std=args.noise_std,
+                          batch_size=args.batch_size,
+                          ent_coef=args.ent_coef,
+                          random_seed=args.random_seed,
+                          max_delayed_return=args.max_delayed_return,
+                          vbn_buffer_size=args.vbn_buffer_size,
+                          collect_zeta=args.collect_zeta,
+                          zeta_size=args.zeta_size,
+                          max_strategy_history_size=args.max_strategy_history_size,
+                          eval_prob=args.eval_prob,
+                          omega_default_value=args.omega_default_value,
+                          omega_improvement_threshold=args.omega_improvement_threshold,
+                          omega_reward_history_size=args.omega_reward_history_size,
+                          omega_min_value=args.omega_min_value,
+                          omega_max_value=args.omega_max_value,
+                          omega_steps_to_min=args.omega_steps_to_min,
+                          omega_steps_to_max=args.omega_steps_to_max,
+                          wandb_run=wandb_run,
+                          bind_port=args.bind_port,
+                          bind_address=args.bind_address,
+                          timestep_limit=args.timestep_limit,
+                          episode_timestep_limit=args.episode_timestep_limit if args.episode_timestep_limit is not None else -1,
                           )
     runner.train()
 
 if __name__ == "__main__":
     import argparse
     parser = argparse.ArgumentParser()
-    parser.add_argument("operation", type=str, choices=["train", "sweep"])
-    parser.add_argument("--env", type=str)
-    parser.add_argument("--timestep_limit", type=int, default=None)
-    parser.add_argument("--log_to_wandb", action="store_true")
-    parser.add_argument("--learning_rate", type=float, default=0.01)
-    parser.add_argument("--noise_std", type=float, default=0.1)
-    parser.add_argument("--batch_size", type=int, default=32)
-    parser.add_argument("--optimizer", type=str, default="DSGD")
-    parser.add_argument('--normalize_obs', action=argparse.BooleanOptionalAction, default=True)
-    parser.add_argument("--obs_stats_update_chance", type=float, default=0.01)
-    parser.add_argument("--ent_coef", type=float, default=0)
-    parser.add_argument("--seed", type=int, default=124, dest="random_seed")
-    parser.add_argument("--max_delayed_return", type=int, default=10)
-    parser.add_argument("--vbn_buffer_size", type=int, default=0)
-    parser.add_argument("--zeta_size", type=int, default=2)
-    parser.add_argument("--max_strategy_history_size", type=int, default=2)
-    parser.add_argument("--eval_prob", type=float, default=0.05)
-    parser.add_argument("--omega_default_value", type=float, default=1)
-    parser.add_argument("--omega_improvement_threshold", type=float, default=1.035)
-    parser.add_argument("--omega_reward_history_size", type=int, default=20)
-    parser.add_argument("--omega_min_value", type=float, default=0)
-    parser.add_argument("--omega_max_value", type=float, default=1)
-    parser.add_argument("--omega_steps_to_min", type=int, default=25)
-    parser.add_argument("--omega_steps_to_max", type=int, default=75)
-    parser.add_argument("--wandb_project", type=str, default=None)
-    parser.add_argument("--wandb_group", type=str, default=None)
-    parser.add_argument("--wandb_run_name", type=str, default=None)
-    parser.add_argument("--bind_port", type=int, default=None)
-    parser.add_argument("--bind_address", type=str, default="localhost")
+
+    command_group = parser.add_argument_group("Command")
+    command_group.add_argument("operation", type=str, choices=["train", "sweep"], help="Operation to perform")
+
+    env_group = parser.add_argument_group("Environment")
+    env_group.add_argument("--env", type=str, dest="env_id", help="The name of the Gym environment on which to train", required=True)
+    env_group.add_argument("--episode_timestep_limit", type=int, default=None, help="If set, enforces a limit on the number of timesteps involved in each episode. (default: %(default)s)")
+
+    exp_group = parser.add_argument_group("Exploration")
+    exp_group.add_argument("--explore", action=argparse.BooleanOptionalAction, default=False, help="Enable advanced exploration (default: %(default)s)")
+    exp_group.add_argument("--collect_zeta", type=int, default=100, help="Collect zeta data for the advanced exploration algorithm (default: %(default)s)")
+    exp_group.add_argument("--zeta_size", type=int, default=100, help="Size of the zeta buffer (default: %(default)s)")
+    exp_group.add_argument("--max_strategy_history_size", type=int, default=0, help="Maximum size of the strategy history (default: %(default)s)")
+
+    exp_group.add_argument("--omega_default_value", type=float, default=0)
+    exp_group.add_argument("--omega_improvement_threshold", type=float, default=1.035)
+    exp_group.add_argument("--omega_reward_history_size", type=int, default=20)
+    exp_group.add_argument("--omega_min_value", type=float, default=0)
+    exp_group.add_argument("--omega_max_value", type=float, default=1)
+    exp_group.add_argument("--omega_steps_to_min", type=int, default=25)
+    exp_group.add_argument("--omega_steps_to_max", type=int, default=75)
+
+    training_group = parser.add_argument_group("Training")
+    training_group.add_argument("--timestep_limit", type=int, default=None, help="Train until this many timesteps (default: %(default)s)")
+    training_group.add_argument("--seed", type=int, default=124, dest="random_seed", help="Random seed (default: %(default)s)")
+    training_group.add_argument("--learning_rate", type=float, default=0.01, help="Learning rate (default: %(default)s)")
+    training_group.add_argument("--noise_std", type=float, default=0.1, help="Noise standard deviation (default: %(default)s)")
+    training_group.add_argument("--batch_size", type=int, default=32, help="Batch size (default: 32)")
+    training_group.add_argument("--optimizer", type=str, default="DSGD", choices=["DSGD", "Adam", "SGD"], help="Optimizer (default: %(default)s)")
+    training_group.add_argument("--max_delayed_return", type=int, default=10, help="Maximum number of steps to delay the return (default: %(default)s)")
+    training_group.add_argument("--ent_coef", type=float, default=0, help="Entropy coefficient (default: %(default)s)")
+    training_group.add_argument("--vbn_buffer_size", type=int, default=1000, help="Size of the VBN buffer. Ignored when using an environment with a continuous action space. (default: %(default)s)")
+
+    training_group.add_argument('--normalize_obs', action=argparse.BooleanOptionalAction, default=True, help="Normalize observations. Ignored when using an environment with a discrete action space. (default: %(default)s)")
+    training_group.add_argument("--obs_stats_update_chance", type=float, default=0.01, help="Probability of updating the observation statistics for normalization. Ignored when using an environment with a discrete action space. (default: %(default)s)")
+
+    training_group.add_argument("--eval_prob", type=float, default=0.05, help="Probability of evaluating the policy (default: %(default)s)")
+
+    logging_group = parser.add_argument_group("Logging")
+    logging_group.add_argument("--log_to_wandb", action="store_true", help="Log to wandb (default: %(default)s)")
+    logging_group.add_argument("--wandb_project", type=str, default=None, help="Name of the wandb project (default: %(default)s)")
+    logging_group.add_argument("--wandb_group", type=str, default=None, help="Name of the wandb group (default: %(default)s)")
+    logging_group.add_argument("--wandb_run_name", type=str, default=None, help="Name of the wandb run (default: %(default)s)")
+    logging_group.add_argument("--existing_wandb_run", type=str, default=None, help="The ID of an existing wandb run to log to (default: %(default)s)")
+
+    net_group = parser.add_argument_group("Network")
+    net_group.add_argument("--bind_port", type=int, default=1025, help="Port to bind to (default: %(default)s)")
+    net_group.add_argument("--bind_address", type=str, default="localhost", help="Address to bind to (default: %(default)s)")
+
     args = parser.parse_args()
     print('Args', args)
 
+    if not args.explore:
+        args.collect_zeta = False
+        args.zeta_size = 0
+        if args.optimizer != "DSGD":
+            args.omega_reward_history_size = 0
+
+
     if args.operation == "train":
-        train(
-            optimizer=args.optimizer,
-            env_id=args.env,
-            normalize_obs=args.normalize_obs,
-            obs_stats_update_chance=args.obs_stats_update_chance,
-            learning_rate=args.learning_rate,
-            noise_std=args.noise_std,
-            batch_size=args.batch_size,
-            ent_coef=args.ent_coef,
-            random_seed=args.random_seed,
-            max_delayed_return=args.max_delayed_return,
-            vbn_buffer_size=args.vbn_buffer_size,
-            zeta_size=args.zeta_size,
-            max_strategy_history_size=args.max_strategy_history_size,
-            eval_prob=args.eval_prob,
-            omega_default_value=args.omega_default_value,
-            omega_improvement_threshold=args.omega_improvement_threshold,
-            omega_reward_history_size=args.omega_reward_history_size,
-            omega_min_value=args.omega_min_value,
-            omega_max_value=args.omega_max_value,
-            omega_steps_to_min=args.omega_steps_to_min,
-            omega_steps_to_max=args.omega_steps_to_max,
-            log_to_wandb=args.log_to_wandb,
-            wandb_project=args.wandb_project,
-            wandb_group=args.wandb_group,
-            wandb_run_name=args.wandb_run_name,
-            bind_port=args.bind_port,
-            bind_address=args.bind_address,
-            timestep_limit=args.timestep_limit
-        )
+        train(args)
     elif args.operation == "sweep":
         raise NotImplementedError("Sweep not implemented yet, someone should do that.")

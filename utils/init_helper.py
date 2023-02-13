@@ -29,4 +29,4 @@ def get_init_data(env_id, random_seed, render_mode=None):
             policy = MujocoPolicy(n_inputs, np.prod(env.action_space.shape), seed=random_seed)
             strategy_distance_fn = math_helpers.gaussian_wasserstein_dist_from_strategies
 
-    return env, policy, strategy_distance_fn
+    return env, policy, strategy_distance_fn, action_space

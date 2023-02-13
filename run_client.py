@@ -131,7 +131,7 @@ class ClientRunner(object):
         random.seed(random_seed)
         np.random.seed(random_seed)
 
-        self.env, self.policy, strategy_distance_fn = init_helper.get_init_data(env_id, random_seed, render_mode="human" if self.render else None)
+        self.env, self.policy, strategy_distance_fn, action_space = init_helper.get_init_data(env_id, random_seed, render_mode="human" if self.render else None)
 
         noise_source = RNGNoiseSource(self.policy.num_params, random_seed=random_seed)
 

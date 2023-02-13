@@ -1,6 +1,6 @@
 from rocketsim import Angle, Vec3
 from rocketsim.sim import Arena, CarConfig, GameMode, Team, Car, CarControls, Ball
-from actions import actions
+from .actions import actions
 
 import pygame
 import numpy as np

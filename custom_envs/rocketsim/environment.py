@@ -140,7 +140,8 @@ class Environment(gym.Env):
         agent.angles = Angle(0, 0, 0)
         agent.boost = 100
 
-        self.goal_pos = Vec3(self.rng.uniform(-3000, 3000), self.rng.uniform(-3000, 3000), 17)
+        # self.goal_pos = Vec3(self.rng.uniform(-3000, 3000), self.rng.uniform(-3000, 3000), 17)
+        self.goal_pos = Vec3(0, 0, 17)
         self.arena.set_car(self.agent_id, agent)
 
         return self._form_obs(), {}
@@ -163,14 +164,11 @@ class Environment(gym.Env):
         # 8. Agent x velocity
         # 9. Agent y velocity
         # 10. Agent z velocity
-        # 11. Ball x position
-        # 12. Ball y position
-        # 13. Ball z position
-        # 14. Ball x velocity
-        # 15. Ball y velocity
-        # 16. Ball z velocity
-        # 17. Last action
-        # 18. Velocity of car toward goal
+        # 11. Goal x position
+        # 12. Goal y position
+        # 13. Goal z position
+        # 14. Last action
+        # 15. Velocity of car toward goal
 
         POS_SCALE = 1/5000
         ANGLE_SCALE = 1/3.14159

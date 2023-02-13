@@ -77,11 +77,10 @@ class Environment(gym.Env):
         agent_pos = self._get_agent().get_pos()
         ball_pos = self._get_ball().get_pos()
 
-        last_distance = self._subtract_vec3(self.last_ball_pos, self.last_agent_pos)
-        curr_distance = self._subtract_vec3(ball_pos, agent_pos)
+        last_distance = np.linalg.norm(self._subtract_vec3(self.last_ball_pos, self.last_agent_pos))
+        current_distance = np.linalg.norm(self._subtract_vec3(ball_pos, agent_pos))
 
-        # normalize by max combined car & ball speed
-        return np.linalg.norm(curr_distance - last_distance) / (6000.0 + 2300.0)
+        return (last_distance - current_distance) / (6000.0 + 2300.0)
 
     def _vel_ball_goal(self):
         if self.last_ball_pos is None:
@@ -89,11 +88,10 @@ class Environment(gym.Env):
 
         ball_pos = self._get_ball().get_pos()
 
-        last_distance = self._subtract_vec3(self.goal_pos, self.last_ball_pos)
-        curr_distance = self._subtract_vec3(self.goal_pos, ball_pos)
+        last_distance = np.linalg.norm(self._subtract_vec3(self.goal_pos, self.last_ball_pos))
+        current_distance = np.linalg.norm(self._subtract_vec3(self.goal_pos, ball_pos))
 
-        # normalize by max ball speed
-        return np.linalg.norm(curr_distance - last_distance) / 6000.0
+        return (last_distance - current_distance) / 2300.0
 
     def _vel_car_goal(self):
         if self.last_agent_pos is None:
@@ -101,11 +99,10 @@ class Environment(gym.Env):
 
         agent_pos = self._get_agent().get_pos()
 
-        last_distance = self._subtract_vec3(self.goal_pos, self.last_agent_pos)
-        curr_distance = self._subtract_vec3(self.goal_pos, agent_pos)
+        last_distance = np.linalg.norm(self._subtract_vec3(self.goal_pos, self.last_agent_pos))
+        current_distance = np.linalg.norm(self._subtract_vec3(self.goal_pos, agent_pos))
 
-        # normalize by max car speed
-        return np.linalg.norm(curr_distance - last_distance) / 2300.0
+        return (last_distance - current_distance) / 2300.0
 
     def _distance_ball_from_target(self, target: Vec3):
         ball = self._get_ball()

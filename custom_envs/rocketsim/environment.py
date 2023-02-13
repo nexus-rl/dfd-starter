@@ -150,8 +150,8 @@ class Environment(gym.Env):
         agent.angles = Angle(0, 0, 0)
         agent.boost = 100
 
-        # self.goal_pos = Vec3(self.rng.uniform(-3000, 3000), self.rng.uniform(-3000, 3000), 17)
-        self.goal_pos = Vec3(0, 0, 17)
+        self.goal_pos = Vec3(self.rng.uniform(-3000, 3000), self.rng.uniform(-3000, 3000), 17)
+        #self.goal_pos = Vec3(0, 0, 17)
         self.arena.set_car(self.agent_id, agent)
 
         return self._form_obs(), {}

@@ -38,14 +38,14 @@ class FiniteDifferences(object):
         #     np.mean(entropies), np.std(entropies), np.min(entropies), np.max(entropies)))
 
         rewards = np.subtract(rewards, policy_reward)
-        # novelties = np.subtract(novelties, policy_novelty)
-        # entropies = np.subtract(entropies, policy_entropy)
+        novelties = np.subtract(novelties, policy_novelty)
+        entropies = np.subtract(entropies, policy_entropy)
         rewards = math_helpers.standardize_arr(rewards)
-        # novelties = math_helpers.standardize_arr(novelties)
-        # entropies = math_helpers.standardize_arr(entropies)
+        novelties = math_helpers.standardize_arr(novelties)
+        entropies = math_helpers.standardize_arr(entropies)
         w = self.omega.omega
 
-        objective_function = rewards #+ entropies*self.ent_coef  # *(1-w) + novelties*w + entropies * self.ent_coef
+        objective_function = rewards*(1-w) + novelties*w + entropies * self.ent_coef
         np.dot(objective_function, perturbations, out=self.gradient_memory) / len(batch)
 
         if self.using_dsgd:

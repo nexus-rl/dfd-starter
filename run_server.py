@@ -49,7 +49,7 @@ class ServerRunner(object):
                  wandb_run=None,
                  bind_port=None,
                  bind_address="localhost"):
-        
+
         self.env = env
         self.policy = policy
         self.strategy_distance_fn = strategy_distance_fn
@@ -442,7 +442,7 @@ if __name__ == "__main__":
     logging_group.add_argument("--existing_wandb_run", type=str, default=None, help="The ID of an existing wandb run to log to (default: %(default)s)")
 
     net_group = parser.add_argument_group("Network")
-    net_group.add_argument("--bind_port", type=int, default=1025, help="Port to bind to (default: %(default)s)")
+    net_group.add_argument("--bind_port", type=int, default=None, help="Port to bind to (default: 50051)")
     net_group.add_argument("--bind_address", type=str, default="localhost", help="Address to bind to (default: %(default)s)")
 
     args = parser.parse_args()

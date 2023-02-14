@@ -23,8 +23,11 @@ class Environment(gym.Env):
         self.last_ball_pos = None
         self.action_space = gym.spaces.Discrete(len(actions))
 
+        obs = self.reset()[0]
         obs_shape = np.shape(self.reset()[0])
-        self.observation_space = gym.spaces.Box(-1, 1, obs_shape)
+        self.observation_space = gym.spaces.Box(-np.inf, np.inf, obs_shape)
+
+        self._check_obs(obs)
 
         if render_mode == "human":
             pygame.init()
@@ -163,56 +166,97 @@ class Environment(gym.Env):
         return self.arena.get_ball()
 
     def _form_obs(self):
-        # OBS:
-        # 1. Agent x position
-        # 2. Agent y position
-        # 3. Agent z position
-        # 4. Agent pitch
-        # 5. Agent yaw
-        # 6. Agent roll
-        # 7. Agent boost
-        # 8. Agent x velocity
-        # 9. Agent y velocity
-        # 10. Agent z velocity
-        # 11. Goal x position
-        # 12. Goal y position
-        # 13. Goal z position
-        # 14. Last action
-        # 15. Velocity of car toward goal
+        # most of these values come from:
+        # https://github.com/ZealanL/RocketSim/blob/main/src/RLConst.h
 
         POS_SCALE = 1/5000
         ANGLE_SCALE = 1/3.14159
         BOOST_SCALE = 1/100
-        VEL_SCALE = 1/5000
-        ACTION_SCALE = 1/3
+        AGENT_VEL_SCALE = 1/2300
+        BALL_VEL_SCALE = 1/6000
+        BALL_ANGVEL_SCALE = 1/6
+        AGENT_ANGVEL_SCALE = 1/5.5
+        ACTION_SCALE = 1/len(actions)
 
         agent = self._get_agent()
-        # ball = self._get_ball()
+        ball = self._get_ball()
         agent_pos = agent.get_pos()
         agent_vel = agent.get_vel()
+
+        # Bullet expresses angular velocities as a 3d vector that points along
+        # the axis of rotation. This is done to make it trivial to add angular
+        # velocities together.
+        agent_angvel = agent.get_angvel()
+
         agent_angles = agent.get_angles()
-        # ball_pos = ball.get_pos()
-        # ball_vel = ball.get_vel()
+        ball_pos = ball.get_pos()
+        ball_vel = ball.get_vel()
+        ball_angvel = ball.get_angvel()
 
-        obs = [
-            agent_pos.x * POS_SCALE,
-            agent_pos.y * POS_SCALE,
-            agent_pos.z * POS_SCALE,
-            agent_angles.pitch * ANGLE_SCALE,
-            agent_angles.yaw * ANGLE_SCALE,
-            agent_angles.roll * ANGLE_SCALE,
-            agent.boost * BOOST_SCALE,
-            agent_vel.x * VEL_SCALE,
-            agent_vel.y * VEL_SCALE,
-            agent_vel.z * VEL_SCALE,
-            self.goal_pos.x * POS_SCALE,
-            self.goal_pos.y * POS_SCALE,
-            self.goal_pos.z * POS_SCALE,
-            -1 if self.last_action is None else (self.last_action * ACTION_SCALE),
-            self._vel_car_goal()
-        ]
+        # list of 3-tuples of friendly-name, root value, and scale value
+        values = np.array([
+            ("agent pos x", agent_pos.x, POS_SCALE),
+            ("agent pos y", agent_pos.y, POS_SCALE),
+            ("agent pos z", agent_pos.z, POS_SCALE),
 
-        return np.asarray(obs, dtype=np.float32)
+            ("agent angle pitch", agent_angles.pitch, ANGLE_SCALE),
+            ("agent angle yaw", agent_angles.yaw, ANGLE_SCALE),
+            ("agent angle roll", agent_angles.roll, ANGLE_SCALE),
+
+            ("agent vel x", agent_vel.x, AGENT_VEL_SCALE),
+            ("agent vel z", agent_vel.y, AGENT_VEL_SCALE),
+            ("agent vel y", agent_vel.z, AGENT_VEL_SCALE),
+
+            ("agent angvel x", agent_angvel.x, AGENT_ANGVEL_SCALE),
+            ("agent angvel y", agent_angvel.y, AGENT_ANGVEL_SCALE),
+            ("agent angvel z", agent_angvel.z, AGENT_ANGVEL_SCALE),
+
+            ("boost", agent.boost, BOOST_SCALE),
+
+            ("ball pos x", ball_pos.x, POS_SCALE),
+            ("ball pos y", ball_pos.y, POS_SCALE),
+            ("ball pos z", ball_pos.z, POS_SCALE),
+
+            ("ball vel x", ball_vel.x, BALL_VEL_SCALE),
+            ("ball vel y", ball_vel.y, BALL_VEL_SCALE),
+            ("ball vel z", ball_vel.z, BALL_VEL_SCALE),
+
+            ("ball angvel x", ball_angvel.x, BALL_ANGVEL_SCALE),
+            ("ball angvel y", ball_angvel.y, BALL_ANGVEL_SCALE),
+            ("ball angvel z", ball_angvel.z, BALL_ANGVEL_SCALE),
+
+            ("goal x", self.goal_pos.x, POS_SCALE),
+            ("goal y", self.goal_pos.y, POS_SCALE),
+            ("goal z", self.goal_pos.z, POS_SCALE),
+
+            ("last action", self.last_action, ACTION_SCALE) if self.last_action is not None else ("last action", -1, 1),
+
+            ("vel car ball", self._vel_car_ball(), 1),
+            ("vel car goal", self._vel_car_goal(), 1),
+            ("vel ball goal", self._vel_ball_goal(), 1),
+        ], dtype=[("name", "U20"), ("root", np.float32), ("scale", np.float32)])
+
+        #create obs by multiplying the root value by the scale value:
+        obs = values["root"] * values["scale"]
+
+        self._check_obs(obs, values)
+
+        # self._check_obs(obs, values, scale)
+        
+        return obs
+    
+    def _check_obs(self, obs, values=None):
+        if not hasattr(self, "observation_space"):
+            return
+
+        if obs not in self.observation_space:
+            # enumerate the values here to give a good error message
+            for i, val in enumerate(obs):
+                if not (-1 <= val <= 1):
+                    if values is not None:
+                        print(f"WARN: Observation space error: {i}: {val} (derived from '{values['name'][i]}', value {values['root'][i]}, scaled by {values['scale'][i]}) not in range [-1, 1]")
+
+                    print(f"WARN: Observation space error: {i}: {val} not in range [-1, 1]")
 
     def close(self):
         pass
@@ -273,6 +317,9 @@ class Environment(gym.Env):
             "Agent x velocity",
             "Agent y velocity",
             "Agent z velocity",
+            "Agent pitch rate",
+            "Agent yaw rate",
+            "Agent roll rate",
             "Goal x position",
             "Goal y position",
             "Goal z position",
@@ -284,8 +331,6 @@ class Environment(gym.Env):
         for i, (obs_name, obs_val) in enumerate(zip(obs_names, obs)):
             text = font.render(f"{obs_name}: {obs_val:.2f}", True, (0, 0, 0))
             display.blit(text, (10, 10 + i * 20))
-
-
 
         pygame.display.update()
 

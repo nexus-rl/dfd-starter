@@ -49,6 +49,7 @@ class ServerInterface(object):
         self.update(initial_state)
 
         self.waiting_returns = []
+        self.waiting_timesteps = 0
 
     def submit_return(self, ret):
         # print("GOT RETURN")
@@ -61,13 +62,13 @@ class ServerInterface(object):
         # print(ret.is_eval)
         # print(np.shape(ret.eval_states))
         self.waiting_returns.append(ret)
+        self.waiting_timesteps += ret.timesteps
 
     def get_returns_batch(self, batch_size=None, current_epoch=None, max_delayed_return=None):
         timesteps = 0
         n_delayed = 0
         n_discarded = 0
         n_collected = 0
-        n_waiting = 0
         rets = []
 
         # passing batch_size=None will pull out every waiting return instead of a specific number
@@ -81,6 +82,7 @@ class ServerInterface(object):
 
             ret = self.waiting_returns.pop(-1)
             timesteps += ret.timesteps
+            self.waiting_timesteps -= ret.timesteps
 
             if current_epoch is not None:
                 diff = current_epoch - ret.epoch
@@ -94,9 +96,7 @@ class ServerInterface(object):
             if not ret.is_eval:
                 n_collected += 1
 
-        n_waiting = len(self.waiting_returns)
-
-        return rets, timesteps, n_delayed, n_discarded, n_waiting
+        return rets, timesteps, n_delayed, n_discarded, self.waiting_timesteps
 
     def update(self, server_state):
         self.server_state.epoch = server_state.epoch
@@ -119,6 +119,7 @@ class ServerInterface(object):
         self.server_state.cleanup()
         del self.server_state
         del self.waiting_returns
+        del self.waiting_timesteps
         del self.cfg
         del self.grpc_cfg
 

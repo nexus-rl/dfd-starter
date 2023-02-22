@@ -144,7 +144,7 @@ class ServerRunner(object):
             consumed_steps_per_sec = 0
             produced_steps_per_sec = 0
 
-            returns, timesteps, n_delayed, n_discarded, n_waiting = worker.collect_returns(batch_size=batch_size,
+            returns, timesteps, n_delayed, n_discarded, n_waiting_timesteps = worker.collect_returns(batch_size=batch_size,
                                                                                 current_epoch=learner.epoch,
                                                                                 max_delayed_return=max_delayed_return)
             # print("received",len(returns))
@@ -153,11 +153,11 @@ class ServerRunner(object):
             # I'm ignoring delayed here because those are included in
             # n_timesteps. We also subtract the number of timesteps that were
             # hanging out in the buffer at the start of the last epoch
-            produced_timesteps = timesteps + n_discarded + n_waiting - n_waiting_last
+            produced_timesteps = timesteps + n_discarded + n_waiting_timesteps - n_waiting_last
 
             # keep track of how many are waiting now so we can subtract them
             # from the next epoch's count
-            n_waiting_last = n_waiting
+            n_waiting_last = n_waiting_timesteps
 
             worker_count = len(set(r.worker_id for r in returns))
 
